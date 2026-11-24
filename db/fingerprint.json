@@ -1,0 +1,20 @@
+{
+  "schema": "59abf20e4a253b78731bcb481d77ade5e56798e5f08660ffbbee005d6a7029f0",
+  "data": "241fb2eb87e541923a4c8047bba93c89231a264bdd0fdd5b4184317c5f729bc9",
+  "rows": {
+    "audit_log": 0,
+    "availability": 7,
+    "devices": 0,
+    "events": 3,
+    "holidays": 0,
+    "justifications": 3,
+    "networks": 2,
+    "punch_rejections": 0,
+    "punches": 23,
+    "schema_migrations": 1,
+    "task_updates": 0,
+    "tasks": 4,
+    "users": 10,
+    "work_schedule": 5
+  }
+}

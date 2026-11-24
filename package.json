@@ -1,0 +1,26 @@
+{
+  "name": "kit-pulse",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.18.0" },
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "dev:api": "node --watch apps/api/src/server.ts",
+    "dev:web": "npm --workspace apps/web run dev",
+    "dev:agent": "node apps/agent/src/agent.ts",
+    "agent:scan": "node apps/agent/src/scan.ts",
+    "db:reset": "node db/reset.ts",
+    "db:migrate": "node db/migrate.ts",
+    "db:verify": "node db/verify.ts",
+    "db:fingerprint": "node db/verify.ts --write",
+    "admin:create": "node db/create-admin.ts",
+    "typecheck": "tsc -p tsconfig.json && tsc -p apps/web/tsconfig.json",
+    "test": "node --test \"db/**/*.test.ts\" \"packages/**/*.test.ts\" \"apps/api/**/*.test.ts\" \"apps/agent/**/*.test.ts\" \"scripts/**/*.test.mjs\"",
+    "build": "npm --workspace apps/web run build",
+    "check": "npm run typecheck && npm test && npm run build && npm run db:verify",
+    "owner:check": "node scripts/check-ownership.mjs"
+  },
+  "devDependencies": { "@types/node": "22.20.5", "typescript": "7.0.2" }
+}

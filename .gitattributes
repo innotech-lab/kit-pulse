@@ -1,0 +1,7 @@
+# Meme fin de ligne pour tout le monde (Windows/Linux/Mac) : evite les faux conflits.
+* text=auto eol=lf
+*.png binary
+*.ico binary
+# Jamais de fusion ligne a ligne du lockfile ni de l'empreinte de la base.
+package-lock.json -merge
+db/fingerprint.json -merge

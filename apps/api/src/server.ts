@@ -1,0 +1,13 @@
+import { databaseFile, loadEnv, migrate, openDb } from '../../../db/lib.ts';
+import { createApp } from './app.ts';
+import { loadConfig } from './core/config.ts';
+import { knownNetworks, syncNetworksFromEnv } from './core/networks.ts';
+loadEnv();
+const config = loadConfig();
+const db = openDb(databaseFile());
+migrate(db);
+const ctx = { db, config, now: () => new Date() };
+syncNetworksFromEnv(ctx);
+for (const n of knownNetworks(ctx)) if (!n.gatewayMacs.length) console.warn(`ATTENTION : aucune MAC de routeur pour "${n.ssid}". Pointage reel refuse sur ce reseau (npm run agent:scan).`);
+if (config.allowSimulated) console.warn('MODE DEVELOPPEMENT : reseau simule accepte.');
+(await createApp(ctx)).listen(config.port, config.host, () => console.log(`API prete : http://${config.host}:${config.port}`));

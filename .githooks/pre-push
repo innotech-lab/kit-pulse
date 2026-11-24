@@ -1,0 +1,8 @@
+#!/bin/sh
+# Refuse l'envoi direct vers main et develop. A activer par chaque personne (voir docs/ANTI-CONFLITS.md).
+while read -r _local _sha remote _rsha; do
+  case "$remote" in
+    refs/heads/main|refs/heads/develop) echo "REFUSE : passer par une Pull Request." >&2; exit 1 ;;
+  esac
+done
+exit 0

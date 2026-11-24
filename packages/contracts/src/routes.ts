@@ -1,0 +1,62 @@
+// Table unique des routes. apps/api/src/contract.test.ts verifie que l'API les monte TOUTES.
+import type { Role } from './enums.ts';
+export type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
+export interface RouteDef { module: string; method: Method; path: string; roles: Role[] | 'ALL' | 'PUBLIC'; ticket: string; owner: string; summary: string }
+const ADMIN: Role[] = ['ADMIN'];
+const HR: Role[] = ['ADMIN', 'HR'];
+const DATA: Role[] = ['ADMIN', 'HR', 'COORDINATOR'];
+const r = (owner: string, module: string, method: Method, path: string, roles: RouteDef['roles'], ticket: string, summary: string): RouteDef => ({ owner, module, method, path, roles, ticket, summary });
+
+export const ROUTES: RouteDef[] = [
+  r('Daniel', 'auth', 'post', '/login', 'PUBLIC', 'AUTH-001', 'Connexion'),
+  r('Daniel', 'auth', 'post', '/logout', 'ALL', 'AUTH-001', 'Deconnexion'),
+  r('Daniel', 'auth', 'get', '/me', 'ALL', 'AUTH-001', 'Compte connecte'),
+  r('Daniel', 'auth', 'post', '/change-password', 'ALL', 'AUTH-002', 'Changer son mot de passe'),
+  r('Daniel', 'users', 'get', '/directory', 'ALL', 'USER-001', 'Annuaire minimal des comptes actifs'),
+  r('Daniel', 'users', 'get', '/', HR, 'USER-001', 'Lister les comptes'),
+  r('Daniel', 'users', 'post', '/', ADMIN, 'USER-002', 'Creer un compte et son ID KIT-HUB'),
+  r('Daniel', 'users', 'patch', '/:id', ADMIN, 'USER-003', 'Modifier un compte ou son ID KIT-HUB'),
+  r('Daniel', 'users', 'post', '/:id/deactivate', ADMIN, 'USER-004', 'Desactiver et couper les sessions'),
+  r('Daniel', 'users', 'post', '/:id/activate', ADMIN, 'USER-004', 'Reactiver'),
+  r('Daniel', 'users', 'post', '/:id/reset-password', ADMIN, 'USER-005', 'Reinitialiser le mot de passe'),
+  r('Beoline', 'audit', 'get', '/', ADMIN, 'AUDIT-001', 'Journal des actions'),
+  r('Daniel', 'reports', 'get', '/me', 'ALL', 'REP-001', 'Mon bilan'),
+  r('Daniel', 'reports', 'get', '/team', DATA, 'REP-001', 'Bilan de toute une equipe'),
+  r('Daniel', 'reports', 'get', '/users/:id', DATA, 'REP-002', 'Bilan individuel'),
+  r('Stany', 'networks', 'get', '/', ADMIN, 'NET-001', 'Lister reseaux et MAC'),
+  r('Stany', 'networks', 'post', '/:id/macs', ADMIN, 'NET-002', 'Ajouter une MAC'),
+  r('Stany', 'networks', 'delete', '/:id/macs/:macId', ADMIN, 'NET-002', 'Retirer une MAC'),
+  r('Stany', 'devices', 'post', '/enroll', 'ALL', 'DEV-001', 'Enregistrer ce poste'),
+  r('Stany', 'devices', 'get', '/', ADMIN, 'DEV-002', 'Lister les postes'),
+  r('Stany', 'devices', 'post', '/:id/approve', ADMIN, 'DEV-002', 'Approuver un poste (personnel ou borne)'),
+  r('Stany', 'devices', 'post', '/:id/revoke', ADMIN, 'DEV-002', 'Revoquer un poste'),
+  r('Stany', 'presence', 'post', '/challenge', 'ALL', 'PRES-001', 'Demander un defi de pointage'),
+  r('Stany', 'presence', 'post', '/punch', 'ALL', 'PRES-001', 'Pointer avec la preuve reseau signee'),
+  r('Stany', 'presence', 'get', '/me/today', 'ALL', 'PRES-002', 'Mes pointages du jour'),
+  r('Stany', 'presence', 'get', '/today', DATA, 'PRES-003', 'Qui est present maintenant'),
+  r('Stany', 'presence', 'get', '/', HR, 'PRES-003', 'Historique des pointages'),
+  r('Stany', 'presence', 'post', '/manual', HR, 'PRES-004', 'Correction manuelle motivee et auditee'),
+  r('Stany', 'presence', 'get', '/rejections', HR, 'PRES-005', 'Tentatives refusees'),
+  r('Dancile', 'attendance', 'get', '/me', 'ALL', 'ATT-001', 'Mes journees'),
+  r('Dancile', 'attendance', 'get', '/', HR, 'ATT-002', 'Journees de toute une equipe'),
+  r('Dancile', 'attendance', 'get', '/schedule', 'ALL', 'ATT-003', 'Horaire de travail'),
+  r('Dancile', 'attendance', 'put', '/schedule', HR, 'ATT-003', 'Modifier les horaires'),
+  r('Dancile', 'attendance', 'get', '/holidays', 'ALL', 'ATT-004', 'Jours feries'),
+  r('Dancile', 'attendance', 'post', '/holidays', HR, 'ATT-004', 'Ajouter un jour ferie'),
+  r('Dancile', 'justifications', 'post', '/', 'ALL', 'JUS-001', 'Justifier un retard ou une absence'),
+  r('Dancile', 'justifications', 'get', '/me', 'ALL', 'JUS-001', 'Mes justifications'),
+  r('Dancile', 'justifications', 'get', '/', HR, 'JUS-002', 'Justifications a traiter'),
+  r('Dancile', 'justifications', 'post', '/:id/review', HR, 'JUS-002', 'Accepter ou refuser'),
+  r('Beoline', 'tasks', 'get', '/me', 'ALL', 'TASK-001', 'Mes taches'),
+  r('Beoline', 'tasks', 'get', '/', DATA, 'TASK-002', 'Taches de toute une equipe'),
+  r('Beoline', 'tasks', 'post', '/', 'ALL', 'TASK-003', 'Creer (pour soi, ou attribuer si ADMIN/HR/COORDINATOR)'),
+  r('Beoline', 'tasks', 'patch', '/:id', 'ALL', 'TASK-003', 'Modifier'),
+  r('Beoline', 'tasks', 'post', '/:id/progress', 'ALL', 'TASK-004', 'Declarer une progression'),
+  r('Beoline', 'availability', 'get', '/', 'ALL', 'AVL-001', 'Disponibilite de chaque personne'),
+  r('Beoline', 'availability', 'put', '/me', 'ALL', 'AVL-002', 'Changer ma disponibilite'),
+  r('Alain', 'agenda', 'get', '/me', 'ALL', 'AGD-001', 'Mon agenda'),
+  r('Alain', 'agenda', 'get', '/', DATA, 'AGD-002', 'Agendas de toute une equipe'),
+  r('Alain', 'agenda', 'post', '/', 'ALL', 'AGD-003', 'Creer un evenement'),
+  r('Alain', 'agenda', 'patch', '/:id', 'ALL', 'AGD-003', 'Modifier'),
+  r('Alain', 'agenda', 'delete', '/:id', 'ALL', 'AGD-003', 'Supprimer'),
+];

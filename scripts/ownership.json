@@ -1,0 +1,10 @@
+{
+  "_": "Un fichier = une seule personne. Le motif le plus long gagne.",
+  "Daniel": ["apps/api/src/*", "apps/api/package.json", "apps/api/src/core/*", "apps/api/src/modules/auth/*", "apps/api/src/modules/users/*", "apps/api/src/modules/reports/*", "db/*", "package.json", "package-lock.json", ".env.example", ".npmrc", ".nvmrc", "tsconfig*.json"],
+  "Dancile": ["apps/api/src/modules/attendance/*", "apps/api/src/modules/justifications/*", "db/seed/30_attendance.ts"],
+  "Stany": ["apps/agent/*", "apps/api/src/modules/networks/*", "apps/api/src/modules/devices/*", "apps/api/src/modules/presence/*", "db/seed/20_presence.ts", "docs/RESEAU.md"],
+  "Beoline": ["apps/api/src/modules/tasks/*", "apps/api/src/modules/availability/*", "apps/api/src/modules/audit/*", "db/seed/40_tasks.ts"],
+  "Alain": ["packages/contracts/*", "apps/api/src/modules/agenda/*", "db/seed/50_agenda.ts", "apps/web/*", "apps/web/src/core/*", "apps/web/src/features/punch/*", "apps/web/src/features/agenda/*", "docs/API.md"],
+  "Abigael": ["apps/web/src/features/tasks/*", "apps/web/src/features/team/*", "apps/web/src/features/attendance/*", "apps/web/src/features/reviews/*", "docs/GUIDE-UTILISATEUR.md"],
+  "Francis": ["apps/web/src/ui/*", "apps/web/public/*", "apps/web/src/features/dashboard/*", "apps/web/src/features/admin/*", "docs/*", "README.md", ".github/*", ".githooks/*", "scripts/*", ".gitignore", ".gitattributes", ".editorconfig"]
+}

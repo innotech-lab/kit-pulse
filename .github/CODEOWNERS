@@ -1,0 +1,31 @@
+# INACTIF tant que les comptes GitHub ne sont pas fournis.
+# Remplacer chaque A_REMPLIR_* par le vrai compte (precede du signe arobase) puis retirer le "# " devant la ligne.
+# Les regles les plus precises sont en dernier (la derniere qui correspond gagne).
+# /docs/                                 A_REMPLIR_FRANCIS
+# /db/                                   A_REMPLIR_DANIEL
+# /apps/api/                             A_REMPLIR_DANIEL
+# /package.json                          A_REMPLIR_DANIEL
+# /package-lock.json                     A_REMPLIR_DANIEL
+# /packages/contracts/                   A_REMPLIR_ALAIN
+# /apps/web/                             A_REMPLIR_ALAIN
+# /apps/agent/                           A_REMPLIR_STANY
+# /apps/api/src/modules/networks/        A_REMPLIR_STANY
+# /apps/api/src/modules/devices/         A_REMPLIR_STANY
+# /apps/api/src/modules/presence/        A_REMPLIR_STANY
+# /db/seed/20_presence.ts                A_REMPLIR_STANY
+# /apps/api/src/modules/attendance/      A_REMPLIR_DANCILE
+# /apps/api/src/modules/justifications/  A_REMPLIR_DANCILE
+# /db/seed/30_attendance.ts              A_REMPLIR_DANCILE
+# /apps/api/src/modules/tasks/           A_REMPLIR_BEOLINE
+# /apps/api/src/modules/availability/    A_REMPLIR_BEOLINE
+# /apps/api/src/modules/audit/           A_REMPLIR_BEOLINE
+# /db/seed/40_tasks.ts                   A_REMPLIR_BEOLINE
+# /apps/api/src/modules/agenda/          A_REMPLIR_ALAIN
+# /db/seed/50_agenda.ts                  A_REMPLIR_ALAIN
+# /apps/web/src/features/tasks/          A_REMPLIR_ABIGAEL
+# /apps/web/src/features/team/           A_REMPLIR_ABIGAEL
+# /apps/web/src/features/attendance/     A_REMPLIR_ABIGAEL
+# /apps/web/src/features/reviews/        A_REMPLIR_ABIGAEL
+# /apps/web/src/ui/                      A_REMPLIR_FRANCIS
+# /apps/web/src/features/dashboard/      A_REMPLIR_FRANCIS
+# /apps/web/src/features/admin/          A_REMPLIR_FRANCIS
