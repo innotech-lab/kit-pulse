@@ -364,3 +364,15 @@ tbody tr:hover { background: var(--surface-2); }
 .toast svg { color: #7ad3a3; flex: none; }
 @keyframes toast { 0% { opacity: 0; transform: translateY(8px); } 6%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(4px); visibility: hidden; } }
 @media (max-width: 760px) { .toast { left: var(--s-4); right: var(--s-4); bottom: var(--s-4); } }
+
+/* ---------- Jours feries : deux colonnes compactes ---------- */
+.table-scroll:has(> .holiday-grid) { overflow: visible; }
+.holiday-grid { list-style: none; padding: 0; margin-bottom: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); column-gap: var(--s-6); }
+.holiday-grid li { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: var(--s-3); padding: var(--s-2) 0; border-top: 1px solid var(--line); }
+.holiday-date { display: grid; justify-items: center; line-height: 1.1; }
+.holiday-date strong { font: 600 var(--t-lg)/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.holiday-date span { font-size: var(--t-xs); color: var(--text-3); }
+.holiday-text { display: grid; min-width: 0; }
+.holiday-text > span { overflow-wrap: anywhere; }
+.holiday-text small { display: block; }
+.holiday-text small::first-letter { text-transform: uppercase; }
