@@ -18,6 +18,7 @@ function range(p: Period) {
 const short = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('fr', { weekday: 'short', day: 'numeric' }).replace('.', '');
 const hhmm = (s: string) => new Date(s).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
 const pctOf = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
+const overtime = (minutes: number) => minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
 
 /* Moment : presence de l'equipe jour par jour. Une barre empilee par jour, l'accent porte "a l'heure". */
 const SERIES = [
@@ -66,6 +67,7 @@ function PersonPanel({ person, days, onClose }: { person: PersonReport; days: At
       <Stat label="Présence" value={`${pctOf(person.presentDays, person.expectedDays)} %`} accent />
       <Stat label="Retards" value={person.lateJustified + person.lateUnjustified} note={`${person.lateUnjustified} non justifiés`} />
       <Stat label="Absences" value={person.absentJustified + person.absentUnjustified} note={`${person.absentUnjustified} non justifiées`} />
+      <Stat label="Heures sup" value={overtime(person.overtimeMinutes)} />
       <Stat label="Tâches terminées" value={`${person.tasksDone} / ${person.tasksPlanned}`} note={`progression moyenne ${person.averageProgress} %`} />
     </div>
     {mine.length === 0 ? <Empty title="Pas de journée détaillée disponible" /> :
@@ -146,12 +148,13 @@ function DashboardPage() {
       <Card title="Bilan par personne" meta="Cliquez sur une personne pour ouvrir sa fiche">
         {!reports ? <Loading /> : reports.length === 0 ? <Empty title="Aucune personne active" /> :
           <div className="table-scroll"><table>
-            <thead><tr><th>Personne</th><th className="num-col">Présence</th><th className="num-col">Retards</th><th className="num-col">Absences</th><th className="num-col">Tâches</th><th>Progression</th></tr></thead>
+            <thead><tr><th>Personne</th><th className="num-col">Présence</th><th className="num-col">Retards</th><th className="num-col">Absences</th><th className="num-col">Heures sup</th><th className="num-col">Tâches</th><th>Progression</th></tr></thead>
             <tbody>{reports.map((r) => <tr key={r.userId} className={`row-link${selected === r.userId ? ' is-selected' : ''}`} tabIndex={0} onClick={() => setSelected(r.userId)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(r.userId); } }} aria-selected={selected === r.userId}>
               <td><span style={{ display: 'flex', alignItems: 'center', gap: 12 }}><Avatar name={r.fullName} />{r.fullName}</span></td>
               <td className="num-col">{r.expectedDays ? <>{r.presentDays}<span className="muted"> / {r.expectedDays}</span></> : <span className="muted">–</span>}</td>
               <td className="num-col">{r.lateJustified + r.lateUnjustified}{r.lateUnjustified > 0 && <span className="muted"> · {r.lateUnjustified} nj</span>}</td>
               <td className="num-col">{r.absentJustified + r.absentUnjustified}{r.absentUnjustified > 0 && <span className="muted"> · {r.absentUnjustified} nj</span>}</td>
+              <td className={`num-col${r.overtimeMinutes === 0 ? ' muted' : ''}`}>{overtime(r.overtimeMinutes)}</td>
               <td className="num-col">{r.tasksDone}<span className="muted"> / {r.tasksPlanned}</span></td>
               <td><span className="progress"><span style={{ width: `${r.averageProgress}%` }} /></span><span className="mono muted" style={{ marginLeft: 8 }}>{r.averageProgress} %</span></td>
             </tr>)}</tbody>
