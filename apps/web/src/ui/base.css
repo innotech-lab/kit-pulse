@@ -278,3 +278,16 @@ tbody tr:hover { background: var(--surface-2); }
 .review-who div { display: grid; }
 .review-who strong { font-weight: 500; }
 .review-reason { margin: 0; padding: var(--s-3) var(--s-4); border-left: 2px solid var(--line-strong); color: var(--text); background: var(--surface-2); border-radius: 0 var(--r-ctl) var(--r-ctl) 0; overflow-wrap: anywhere; }
+
+/* ---------- Correctif mobile : le menu defile, la page ne deborde jamais ---------- */
+@media (max-width: 760px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { display: grid; grid-template-columns: 1fr auto; gap: var(--s-3); min-width: 0; }
+  .sidebar nav { grid-column: 1 / -1; grid-row: 2; display: flex; gap: var(--s-1); overflow-x: auto; min-width: 0; margin: 0 calc(var(--s-4) * -1); padding: 0 var(--s-4); scrollbar-width: none; }
+  .sidebar nav > div { display: contents; }
+  .sidebar .nav-group { display: contents; }
+  .me { grid-column: 2; grid-row: 1; }
+  .page, .card, .stats, .split { min-width: 0; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat-value { font-size: 22px; }
+}
