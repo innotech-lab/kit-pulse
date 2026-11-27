@@ -1,7 +1,36 @@
-/* Francis. Couleurs tirees du logo KiT Hub (degrade violet vers cyan). Aucune couleur en dur ailleurs. */
+/* Francis. Design system KIT-Pulse. Direction : ponctuel, chaleureux, exact ; univers de l'horloge de pointage.
+   Fonds neutres (graphite legerement froid), un seul accent : le violet KiT. Le cyan du logo ne sert qu'au repere "maintenant". */
 :root {
-  --violet: #6f4cf5; --cyan: #12c8ee; --brand: linear-gradient(90deg, var(--violet), var(--cyan));
-  --ink: #12131a; --muted: #5b6072; --line: #e2e5ee; --surface: #fff; --bg: #f6f7fb;
-  --ok: #14804a; --warn: #9a5b00; --danger: #b3261e; --info: #4d35c4;
-  --radius: 12px; --space: 16px; --font: system-ui, 'Segoe UI', sans-serif;
+  /* Rampe neutre */
+  --n-0: #ffffff; --n-25: #fafafb; --n-50: #f4f4f6; --n-100: #ebebef; --n-200: #dcdce2;
+  --n-400: #9a9aa6; --n-500: #74747f; --n-600: #55555f; --n-800: #26262c; --n-900: #16161a;
+  --bg: var(--n-50); --surface: var(--n-0); --surface-2: var(--n-25); --sunken: var(--n-100);
+  --text: var(--n-900); --text-2: var(--n-600); --text-3: var(--n-500);
+  --line: rgb(22 22 26 / 0.08); --line-strong: rgb(22 22 26 / 0.14);
+
+  /* Accent unique */
+  --accent: #5a3fd1; --accent-hover: #4b33b5; --accent-ink: #4a32b0; --accent-soft: #eeebfb; --on-accent: #ffffff;
+  --now: #0aa7c9; /* repere "maintenant" sur la frise, seul usage du cyan */
+
+  /* Semantique, adoucie */
+  --ok: #1d7a4b; --ok-soft: #e7f3ec;
+  --warn: #9a5a06; --warn-soft: #fbf1e2;
+  --danger: #b4322a; --danger-soft: #fbeceb;
+  --info: var(--accent-ink); --muted: var(--text-3); --ink: var(--text); /* alias historiques */
+
+  /* Type */
+  --font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Cascadia Mono', 'SF Mono', ui-monospace, Consolas, monospace;
+  --t-xs: 12px; --t-sm: 13px; --t-md: 14px; --t-lg: 16px; --t-xl: 20px; --t-2xl: 28px; --t-3xl: 44px;
+
+  /* Espace (grille de 4) et formes */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px;
+  --r-ctl: 8px; --r-card: 14px; --r-panel: 18px;
+  --radius: var(--r-card); --space: var(--s-4);
+  --shadow: 0 1px 2px rgb(22 22 26 / 0.05), 0 1px 1px rgb(22 22 26 / 0.03);
+  --shadow-pop: 0 8px 24px rgb(22 22 26 / 0.10), 0 2px 6px rgb(22 22 26 / 0.06);
+
+  /* Mouvement */
+  --ease: cubic-bezier(0.2, 0, 0, 1); --d-fast: 120ms; --d-mid: 200ms;
 }
