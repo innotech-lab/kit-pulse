@@ -33,7 +33,7 @@ export default function reportsModule(ctx: Ctx) {
   });
   route('get', '/team', ({ query }) => {
     const r = parse(Range, query);
-    const users = ctx.db.prepare('SELECT id, full_name FROM users WHERE is_active = 1 ORDER BY full_name').all() as { id: number; full_name: string }[];
+    const users = ctx.db.prepare("SELECT id, full_name FROM users WHERE is_active = 1 AND role != 'ADMIN' ORDER BY full_name").all() as { id: number; full_name: string }[];
     return users.map((u) => personReport(ctx, u.id, u.full_name, r.from, r.to));
   });
   route('get', '/users/:id', ({ params, query }) => {

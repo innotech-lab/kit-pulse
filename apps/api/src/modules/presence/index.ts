@@ -88,7 +88,7 @@ export default function presenceModule(ctx: Ctx) {
         (SELECT MIN(at) FROM punches p WHERE p.user_id = u.id AND p.work_date = ? AND p.type = 'IN') AS first_in,
         (SELECT type FROM punches p WHERE p.user_id = u.id AND p.work_date = ? ORDER BY at DESC, id DESC LIMIT 1) AS last_type,
         (SELECT at FROM punches p WHERE p.user_id = u.id AND p.work_date = ? ORDER BY at DESC, id DESC LIMIT 1) AS last_at
-      FROM users u WHERE u.is_active = 1 ORDER BY u.full_name`).all(date, date, date) as Record<string, unknown>[];
+      FROM users u WHERE u.is_active = 1 AND u.role != 'ADMIN' ORDER BY u.full_name`).all(date, date, date) as Record<string, unknown>[];
     return rows.map((r) => ({ userId: r.id as number, fullName: r.full_name as string, present: r.last_type === 'IN', firstIn: (r.first_in as string | null) ?? null, lastPunchAt: (r.last_at as string | null) ?? null }));
   });
   route('get', '/', ({ query }) => {

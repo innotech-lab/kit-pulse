@@ -2,6 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startTestApi } from '../../testing.ts';
 
+test('les statistiques equipe excluent les administrateurs et conservent les RH', async () => {
+  const api = await startTestApi();
+  try {
+    const rh = await api.login('rh');
+    for (const path of ['/reports/team?from=2026-11-25&to=2026-11-25', '/presence/today', '/attendance?from=2026-11-25&to=2026-11-25']) {
+      const result = await api.call('GET', path, { cookie: rh });
+      assert.equal(result.status, 200);
+      assert.equal(result.json.some((row: { userId: number }) => row.userId === 1), false);
+      assert.equal(result.json.some((row: { userId: number }) => row.userId === 2), true);
+    }
+    const individual = await api.call('GET', '/attendance?from=2026-11-25&to=2026-11-25&userId=1', { cookie: rh });
+    assert.equal(individual.status, 200);
+    assert.equal(individual.json[0].userId, 1);
+  } finally { await api.close(); }
+});
+
 test('REP-001/002 : chiffres identiques aux journees, periode vide a zero, interdit au MEMBER', async () => {
   const api = await startTestApi();
   try {

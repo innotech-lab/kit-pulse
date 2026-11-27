@@ -17,7 +17,7 @@ export default function attendanceModule(ctx: Ctx) {
     const r = parse(Range, query);
     const { userId } = parse(RangeForUser, query);
     const ids = userId !== undefined ? [userId]
-      : (ctx.db.prepare('SELECT id FROM users WHERE is_active = 1 ORDER BY full_name').all() as { id: number }[]).map((u) => u.id);
+      : (ctx.db.prepare("SELECT id FROM users WHERE is_active = 1 AND role != 'ADMIN' ORDER BY full_name").all() as { id: number }[]).map((u) => u.id);
     return ids.flatMap((id) => computeDays(ctx, id, r.from, r.to));
   });
   const schedule = () => ctx.db.prepare('SELECT weekday, start_time AS startTime, end_time AS endTime, grace_minutes AS graceMinutes FROM work_schedule ORDER BY weekday').all();
