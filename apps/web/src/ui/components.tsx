@@ -116,5 +116,5 @@ export function StatusIcon({ status }: { status: AvailabilityStatus }) {
 }
 
 /** Graduations sous une frise : heures placees exactement. */
-export const DayScale = ({ hours = [7, 8, 12, 17, 18] }: { hours?: number[] }) =>
+export const DayScale = ({ hours = [8, 10, 12, 14, 17] }: { hours?: number[] }) =>
   <div className="dayscale" aria-hidden="true">{hours.map((h) => <span key={h} style={{ left: pct(h * 60) }}>{String(h).padStart(2, '0')}:00</span>)}</div>;

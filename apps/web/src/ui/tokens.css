@@ -10,12 +10,12 @@
 
   /* Accent unique */
   --accent: #5a3fd1; --accent-hover: #4b33b5; --accent-ink: #4a32b0; --accent-soft: #eeebfb; --on-accent: #ffffff;
-  --now: #0aa7c9; /* repere "maintenant" sur la frise, seul usage du cyan */
+  --accent-2: #b5a3ee; --now: #0aa7c9; /* repere "maintenant" sur la frise, seul usage du cyan */
 
   /* Semantique, adoucie */
   --ok: #1d7a4b; --ok-soft: #e7f3ec;
   --warn: #9a5a06; --warn-soft: #fbf1e2;
-  --danger: #b4322a; --danger-soft: #fbeceb;
+  --danger: #b4322a; --danger-soft: #fbeceb; --danger-2: #dc9a94;
   --info: var(--accent-ink); --muted: var(--text-3); --ink: var(--text); /* alias historiques */
 
   /* Type */

@@ -30,7 +30,7 @@ export function Login() {
             <p className="muted">Pointage, tâches et présences de l’équipe KiT Hub</p>
           </div>
           <form onSubmit={submit}>
-            <Field label="Email" name="email" type="email" autoComplete="username" placeholder="prenom@kithub.bi" required />
+            <Field label="Email" name="email" type="email" autoComplete="username" placeholder="prenom@kitpulse.local" required />
             <Field label="Mot de passe" name="password" type="password" autoComplete="current-password" required />
             {error && <p role="alert" className="error">{error}</p>}
             <Button type="submit" disabled={busy} icon="login">{busy ? 'Connexion…' : 'Se connecter'}</Button>

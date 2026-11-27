@@ -6,7 +6,7 @@ import { Avatar, Icon, IconButton, type IconName } from './components.tsx';
 interface Props { user: User; items: { path: string; label: string }[]; active: string; onLogout: () => Promise<void>; children: ReactNode }
 const ICONS: Record<string, IconName> = { pointage: 'clock', tasks: 'tasks', agenda: 'calendar', attendance: 'attendance', equipe: 'team', dashboard: 'dashboard', reviews: 'review', admin: 'admin' };
 const MINE = new Set(['pointage', 'tasks', 'agenda', 'attendance']);
-const ROLE: Record<User['role'], string> = { ADMIN: 'Administration', HR: 'Ressources humaines', COORDINATOR: 'Coordination', MEMBER: 'Équipe' };
+const ROLE: Record<User['role'], string> = { ADMIN: 'Admin', HR: 'RH', COORDINATOR: 'Coordination', MEMBER: 'Membre' };
 
 export function Layout({ user, items, active, onLogout, children }: Props) {
   const groups = [
