@@ -4,7 +4,7 @@ import { ApproveDeviceInput, EnrollInput, Id } from '@kit-pulse/contracts';
 import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
 import { badRequest, conflict, notFound } from '../../core/errors.ts';
-import { createModule, parse, todo } from '../../core/module.ts';
+import { createModule, parse } from '../../core/module.ts';
 
 export const keyIdOf = (publicKey: string) => createHash('sha256').update(publicKey).digest('hex').slice(0, 32);
 
@@ -27,7 +27,9 @@ export default function devicesModule(ctx: Ctx) {
     audit(ctx, user.id, 'DEVICE_ENROLL', 'device', Number(r.lastInsertRowid), { status });
     return { id: Number(r.lastInsertRowid), keyId, status };
   });
-  route('get', '/', todo('DEV-002'));
+  route('get', '/', () => (ctx.db.prepare(`SELECT d.id, d.key_id, d.label, d.kind, d.user_id, u.full_name, d.status, d.created_at, d.reviewed_at
+    FROM devices d JOIN users u ON u.id = d.user_id ORDER BY CASE d.status WHEN 'PENDING' THEN 0 WHEN 'APPROVED' THEN 1 ELSE 2 END, d.created_at DESC`).all() as Record<string, unknown>[])
+    .map((d) => ({ id: d.id, keyId: d.key_id, label: d.label, kind: d.kind, userId: d.user_id, fullName: d.full_name, status: d.status, createdAt: d.created_at, reviewedAt: d.reviewed_at ?? null })));
   route('post', '/:id/approve', ({ params, body, user }) => {
     const id = parse(Id, params.id), { kind } = parse(ApproveDeviceInput, body);
     const r = ctx.db.prepare("UPDATE devices SET status = 'APPROVED', kind = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?").run(kind, user.id, ctx.now().toISOString(), id);
@@ -35,6 +37,12 @@ export default function devicesModule(ctx: Ctx) {
     audit(ctx, user.id, 'DEVICE_APPROVE', 'device', id, { kind });
     return { id, status: 'APPROVED', kind };
   });
-  route('post', '/:id/revoke', todo('DEV-002'));
+  route('post', '/:id/revoke', ({ params, user }) => {
+    const id = parse(Id, params.id);
+    const r = ctx.db.prepare("UPDATE devices SET status = 'REVOKED', reviewed_by = ?, reviewed_at = ? WHERE id = ?").run(user.id, ctx.now().toISOString(), id);
+    if (!r.changes) throw notFound();
+    audit(ctx, user.id, 'DEVICE_REVOKE', 'device', id);
+    return { id, status: 'REVOKED' };
+  });
   return router;
 }

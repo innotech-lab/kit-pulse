@@ -1,6 +1,7 @@
 // Stany. /challenge et /punch sont fournis et testes (coeur du projet) ; le reste est a developper.
 import { createPublicKey, randomBytes, verify } from 'node:crypto';
-import { attestationPayload, ChallengeInput, checkNetwork, PunchInput, SIMULATED_GATEWAY_MAC, type PunchType } from '@kit-pulse/contracts';
+import { attestationPayload, ChallengeInput, checkNetwork, ManualPunchInput, PunchInput, RangeForUser, SIMULATED_GATEWAY_MAC, type Punch, type PunchType } from '@kit-pulse/contracts';
+import { audit } from '../../core/audit.ts';
 import { transaction } from '../../../../../db/lib.ts';
 import type { Ctx } from '../../core/context.ts';
 import { conflict, HttpError } from '../../core/errors.ts';
@@ -9,6 +10,10 @@ import { knownNetworks } from '../../core/networks.ts';
 import { localParts } from '../../core/time.ts';
 
 const CHALLENGE_MS = 60_000;
+const toPunch = (r: Record<string, unknown>): Punch => ({
+  id: r.id as number, userId: r.user_id as number, type: r.type as PunchType, at: r.at as string, workDate: r.work_date as string,
+  networkId: (r.network_id as number | null) ?? null, source: r.source as Punch['source'], simulated: r.simulated === 1,
+});
 
 export default function presenceModule(ctx: Ctx) {
   const { router, route } = createModule(ctx, 'presence');
@@ -72,10 +77,39 @@ export default function presenceModule(ctx: Ctx) {
     return punch;
   });
 
-  route('get', '/me/today', todo('PRES-002'));
-  route('get', '/today', todo('PRES-003'));
-  route('get', '/', todo('PRES-003'));
-  route('post', '/manual', todo('PRES-004'));
+  route('get', '/me/today', ({ user }) => {
+    const date = localParts(ctx.now(), ctx.config.timezone).date;
+    const punches = (ctx.db.prepare('SELECT * FROM punches WHERE user_id = ? AND work_date = ? ORDER BY at, id').all(user.id, date) as Record<string, unknown>[]).map(toPunch);
+    return { workDate: date, punches, next: nextAllowed(user.id, date) };
+  });
+  route('get', '/today', () => {
+    const date = localParts(ctx.now(), ctx.config.timezone).date;
+    const rows = ctx.db.prepare(`SELECT u.id, u.full_name,
+        (SELECT MIN(at) FROM punches p WHERE p.user_id = u.id AND p.work_date = ? AND p.type = 'IN') AS first_in,
+        (SELECT type FROM punches p WHERE p.user_id = u.id AND p.work_date = ? ORDER BY at DESC, id DESC LIMIT 1) AS last_type,
+        (SELECT at FROM punches p WHERE p.user_id = u.id AND p.work_date = ? ORDER BY at DESC, id DESC LIMIT 1) AS last_at
+      FROM users u WHERE u.is_active = 1 ORDER BY u.full_name`).all(date, date, date) as Record<string, unknown>[];
+    return rows.map((r) => ({ userId: r.id as number, fullName: r.full_name as string, present: r.last_type === 'IN', firstIn: (r.first_in as string | null) ?? null, lastPunchAt: (r.last_at as string | null) ?? null }));
+  });
+  route('get', '/', ({ query }) => {
+    const r = parse(RangeForUser, query);
+    const rows = r.userId !== undefined
+      ? ctx.db.prepare('SELECT * FROM punches WHERE user_id = ? AND work_date BETWEEN ? AND ? ORDER BY at DESC, id DESC LIMIT 2000').all(r.userId, r.from, r.to)
+      : ctx.db.prepare('SELECT * FROM punches WHERE work_date BETWEEN ? AND ? ORDER BY at DESC, id DESC LIMIT 2000').all(r.from, r.to);
+    return (rows as Record<string, unknown>[]).map(toPunch);
+  });
+  route('post', '/manual', ({ body, user, res }) => {
+    const input = parse(ManualPunchInput, body);
+    if (!ctx.db.prepare('SELECT id FROM users WHERE id = ?').get(input.userId)) throw new HttpError(404, 'NOT_FOUND', 'Personne introuvable.');
+    if (new Date(input.at) > ctx.now()) throw new HttpError(400, 'FUTURE_PUNCH', 'Un pointage manuel ne peut pas etre dans le futur.');
+    const workDate = localParts(new Date(input.at), ctx.config.timezone).date;
+    const r = ctx.db.prepare("INSERT INTO punches (user_id, type, at, work_date, simulated, source, reason, created_by) VALUES (?,?,?,?,0,'MANUAL',?,?)")
+      .run(input.userId, input.type, input.at, workDate, input.reason, user.id);
+    const id = Number(r.lastInsertRowid);
+    audit(ctx, user.id, 'PUNCH_MANUAL', 'punch', id, { userId: input.userId, type: input.type, at: input.at, reason: input.reason });
+    res.status(201);
+    return toPunch(ctx.db.prepare('SELECT * FROM punches WHERE id = ?').get(id) as Record<string, unknown>);
+  });
   route('get', '/rejections', todo('PRES-005'));
   return router;
 }
