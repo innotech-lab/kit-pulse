@@ -75,7 +75,7 @@ function AttendancePage() {
       <Stat label="Heures sup" value={formatMinutes(overtimeMinutes)} note={`${overtimeDays} jours · à valider par les RH`} />
       <Stat label="À justifier" value={toJustify.length} note={toJustify.length ? "bouton Justifier sur la journée" : "rien en attente de votre part"} />
     </div>
-    <div className="split">
+    <div className="grid">
       <Card title="Mes journées" meta="08:00 – 17:00">
         {loading ? <Loading /> : recent.length === 0 ? <Empty title="Aucune journée à afficher" /> :
           <div className="table-scroll"><table>
