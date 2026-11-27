@@ -3,7 +3,7 @@ import type { Availability, AvailabilityStatus } from '@kit-pulse/contracts';
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
-import { Button, Card, Field, StatusIcon } from '../../ui/components.tsx';
+import { Avatar, Button, Card, Empty, Field, Loading, Notice, Page, SelectField, StatusIcon } from '../../ui/components.tsx';
 import { AVAILABILITY_STATUSES, filterAvailability } from './model.ts';
 import { apiErrorMessage, isDevelopmentNotImplemented } from './feedback.ts';
 
@@ -31,7 +31,7 @@ function TeamPage() {
     let active = true;
     setLoading(true);
     api<Availability[]>('GET', '/availability', { mock: MOCK }).then((data) => {
-      if (active) { setRows(data); setDemo(data === MOCK); }
+      if (active) { setRows(data); setDemo(data === MOCK); const me = data.find((r) => r.userId === user?.id); if (me) { setStatus(me.status); setNote(me.note ?? ''); } }
     }).catch((e: unknown) => { if (active) setError(apiErrorMessage(e)); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
@@ -52,23 +52,36 @@ function TeamPage() {
     } finally { setSaving(false); }
   }
 
-  return <Card>
-    <h1>Équipe et disponibilités</h1>
-    {demo && <p className="mock" role="status">Données de démonstration — elles ne représentent pas les disponibilités réelles.</p>}
-    {error && <p role="alert" className="error">Impossible de charger ou modifier les disponibilités : {error}</p>}
-    <form onSubmit={changeStatus} aria-label="Changer ma disponibilité">
-      <label className="field">Mon statut<select value={status} onChange={(e) => setStatus(e.target.value as AvailabilityStatus)}>{AVAILABILITY_STATUSES.map((s) => <option key={s} value={s}>{LABELS[s]}</option>)}</select></label>
-      <Field label="Note (facultative)" value={note} maxLength={140} onChange={(e) => setNote(e.target.value)} />
-      <Button type="submit" disabled={saving}>{saving ? 'Enregistrement…' : 'Mettre à jour mon statut'}</Button>
-      {notice && <p role="status">{notice}</p>}
-    </form>
-    <h2>Disponibilités de l’équipe</h2>
-    <div className="feature-filters">
-      <Field label="Filtrer par nom" value={filter} onChange={(e) => setFilter(e.target.value)} />
-      <label className="field">Statut<select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AvailabilityStatus | 'ALL')}><option value="ALL">Tous les statuts</option>{AVAILABILITY_STATUSES.map((s) => <option key={s} value={s}>{LABELS[s]}</option>)}</select></label>
+  const mine = rows.find((r) => r.userId === user?.id);
+  const counts = AVAILABILITY_STATUSES.map((s) => ({ s, n: rows.filter((r) => r.status === s).length })).filter((c) => c.n > 0);
+  return <Page title="Équipe" meta={loading ? "Lecture des disponibilités…" : counts.map((c) => `${c.n} ${LABELS[c.s].toLowerCase()}`).join(" · ")}>
+    {demo && <Notice tone="warn">Données de démonstration : elles ne représentent pas les disponibilités réelles</Notice>}
+    {error && <Notice tone="danger">Impossible de charger ou modifier les disponibilités : {error}</Notice>}
+    <div className="split split-rev">
+      <Card title="Disponibilités" meta={`${visible.length} personne${visible.length > 1 ? "s" : ""}`}>
+        <div className="feature-filters">
+          <Field label="Rechercher" placeholder="Nom" value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <SelectField label="Statut" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as AvailabilityStatus | "ALL")}><option value="ALL">Tous</option>{AVAILABILITY_STATUSES.map((s) => <option key={s} value={s}>{LABELS[s]}</option>)}</SelectField>
+        </div>
+        {loading ? <Loading /> : visible.length === 0 ? <Empty title="Personne ne correspond à ce filtre" /> :
+          <ul className="team-grid">{visible.map((r) => <li key={r.userId} className={r.userId === user?.id ? "is-me" : undefined}>
+            <Avatar name={r.fullName} />
+            <div className="team-text"><strong>{r.fullName}{r.userId === user?.id && <span className="muted"> · moi</span>}</strong><StatusIcon status={r.status} />
+              {r.note && <p>{r.note}</p>}{r.until && <small>Jusqu’à {new Date(r.until).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" })}</small>}</div>
+          </li>)}</ul>}
+      </Card>
+      <Card title="Mon statut" meta={mine ? LABELS[mine.status] : undefined}>
+        <form onSubmit={changeStatus} aria-label="Changer ma disponibilité">
+          <fieldset className="choice"><legend className="sr-only">Statut</legend>
+            {AVAILABILITY_STATUSES.map((s) => <label key={s} className="choice-item"><input type="radio" name="status" value={s} checked={status === s} onChange={() => setStatus(s)} /><StatusIcon status={s} /></label>)}
+          </fieldset>
+          <Field label="Note" hint="Facultatif, visible par l’équipe" placeholder="Ex. salle 2, retour 15:00" value={note} maxLength={140} onChange={(e) => setNote(e.target.value)} />
+          <Button type="submit" disabled={saving}>{saving ? "Enregistrement…" : "Mettre à jour mon statut"}</Button>
+          {notice && <Notice tone="ok">{notice}</Notice>}
+        </form>
+      </Card>
     </div>
-    {loading ? <p role="status">Chargement des disponibilités…</p> : visible.length === 0 ? <p>Aucune personne ne correspond à ce filtre.</p> : <ul className="feature-list">{visible.map((r) => <li key={r.userId}><strong style={{ overflowWrap: 'anywhere' }}>{r.fullName}</strong> <StatusIcon status={r.status} />{r.note && <p style={{ overflowWrap: 'anywhere' }}>{r.note}</p>}{r.until && <small>Jusqu’au {new Date(r.until).toLocaleString()}</small>}</li>)}</ul>}
-  </Card>;
+  </Page>;
 }
 const feature: Feature = { path: 'equipe', label: 'Équipe', order: 40, Component: TeamPage };
 export default feature;

@@ -3,11 +3,11 @@ import type { AttendanceDay, Justification, JustificationKind } from '@kit-pulse
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
-import { Button, Card } from '../../ui/components.tsx';
+import { Button, Card, DayLine, Empty, Field, Loading, Notice, Page, SelectField, Stat, Tag, TextArea } from '../../ui/components.tsx';
 import { attendanceStatusLabel } from './model.ts';
 import { apiErrorMessage, isDevelopmentNotImplemented } from '../team/feedback.ts';
 
-const justificationStatus: Record<Justification['status'], string> = { PENDING: 'En attente de décision', ACCEPTED: 'Acceptée', REJECTED: 'Refusée' };
+const justificationStatus: Record<Justification['status'], string> = { PENDING: 'En attente', ACCEPTED: 'Acceptée', REJECTED: 'Refusée' };
 
 function AttendancePage() {
   const { user } = useSession();
@@ -53,24 +53,59 @@ function AttendancePage() {
     } finally { setSaving(false); }
   }
 
-  return <Card>
-    <h1>Mes présences</h1>
-    {demo && <p role="status" className="mock">Données de démonstration — elles ne correspondent pas à votre présence réelle. Les dépôts locaux ne sont pas transmis au serveur.</p>}
-    {error && <p role="alert" className="error">Impossible de charger ou transmettre les informations : {error}</p>}{notice && <p role="status">{notice}</p>}
-    <h2>Mes journées</h2>
-    {loading ? <p role="status">Chargement des journées…</p> : days.length === 0 ? <p>Aucune journée à afficher pour la période.</p> : <div className="table-scroll" style={{ maxWidth: '100%', overflowX: 'auto' }}><table><thead><tr><th>Date</th><th>Statut</th><th>Retard</th><th>Pointages</th><th>Justification</th></tr></thead><tbody>{days.map((d) => <tr key={`${d.userId}-${d.workDate}`}><td>{d.workDate}</td><td>{attendanceStatusLabel(d)}</td><td>{d.minutesLate ? `${d.minutesLate} min` : '—'}</td><td>{d.firstIn ? new Date(d.firstIn).toLocaleTimeString() : '—'} / {d.lastOut ? new Date(d.lastOut).toLocaleTimeString() : d.missingOut ? 'Sortie oubliée' : '—'}</td><td>{d.justificationStatus ? justificationStatus[d.justificationStatus] : 'Aucune'}</td></tr>)}</tbody></table></div>}
-    <h2>Déposer une justification</h2>
-    <form onSubmit={submit}>
-      <div className="feature-filters">
-        <label className="field">Type<select value={kind} onChange={(e) => setKind(e.target.value as JustificationKind)}><option value="LATE">Retard</option><option value="ABSENCE">Absence</option></select></label>
-        <label className="field">Date concernée<input type="date" required value={workDate} onChange={(e) => setWorkDate(e.target.value)} /></label>
+  const worked = days.filter((d) => d.status !== "OFF" && d.status !== "HOLIDAY");
+  const recent = [...worked].reverse();
+  const toJustify = worked.filter((d) => (d.status === "LATE" || d.status === "ABSENT") && !d.justificationStatus);
+  const hhmm = (v: string) => new Date(v).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" });
+  const dayLabel = (v: string) => new Date(`${v}T12:00:00`).toLocaleDateString("fr", { weekday: "short", day: "numeric", month: "short" });
+  function prefill(d: AttendanceDay) { setKind(d.status === "LATE" ? "LATE" : "ABSENCE"); setWorkDate(d.workDate); document.getElementById("justify-reason")?.focus(); }
+  const tone = (d: AttendanceDay) => d.status === "PRESENT" ? "ok" : d.status === "LATE" ? (d.justified ? "neutral" : "warn") : d.status === "ABSENT" ? (d.justified ? "neutral" : "danger") : "neutral";
+  return <Page title="Mes présences" meta={`${new Date().getFullYear()} · depuis mon arrivée`}>
+    {demo && <Notice tone="warn">Données de démonstration : elles ne correspondent pas à votre présence réelle</Notice>}
+    {error && <Notice tone="danger">Impossible de charger ou transmettre les informations : {error}</Notice>}
+    {notice && <Notice tone="ok">{notice}</Notice>}
+    <div className="stats">
+      <Stat label="Jours pointés" value={worked.filter((d) => d.status === "PRESENT" || d.status === "LATE").length} note={`sur ${worked.filter((d) => d.status !== "PENDING").length} jours travaillés`} accent />
+      <Stat label="Retards" value={worked.filter((d) => d.status === "LATE").length} note={`${worked.filter((d) => d.status === "LATE" && d.justified).length} justifiés`} />
+      <Stat label="Absences" value={worked.filter((d) => d.status === "ABSENT").length} note={`${worked.filter((d) => d.status === "ABSENT" && d.justified).length} justifiées`} />
+      <Stat label="À justifier" value={toJustify.length} note={toJustify.length ? "un clic sur Justifier remplit le formulaire" : "rien en attente de votre part"} />
+    </div>
+    <div className="split">
+      <Card title="Mes journées" meta="08:00 – 17:00">
+        {loading ? <Loading /> : recent.length === 0 ? <Empty title="Aucune journée à afficher" /> :
+          <div className="table-scroll"><table>
+            <thead><tr><th>Jour</th><th style={{ width: "36%" }}>Journée</th><th>Horaires</th><th>Statut</th><th /></tr></thead>
+            <tbody>{recent.map((d) => <tr key={`${d.userId}-${d.workDate}`}>
+              <td style={{ whiteSpace: "nowrap" }}>{dayLabel(d.workDate)}</td>
+              <td><DayLine firstIn={d.firstIn} lastOut={d.lastOut} late={d.status === "LATE"} now={d.status === "PENDING"} /></td>
+              <td className="mono" style={{ whiteSpace: "nowrap" }}>{d.firstIn ? hhmm(d.firstIn) : "--:--"} – {d.lastOut ? hhmm(d.lastOut) : d.missingOut ? "sortie oubliée" : "--:--"}</td>
+              <td><Tag tone={tone(d)}>{attendanceStatusLabel(d)}{d.status === "LATE" ? ` · ${d.minutesLate} min` : ""}</Tag>{d.justificationStatus && !d.justified && <small style={{ display: "block", marginTop: 4 }}>{justificationStatus[d.justificationStatus]}</small>}</td>
+              <td className="num-col">{(d.status === "LATE" || d.status === "ABSENT") && !d.justificationStatus && <Button size="sm" variant="secondary" onClick={() => prefill(d)}>Justifier</Button>}</td>
+            </tr>)}</tbody>
+          </table></div>}
+      </Card>
+      <div className="grid">
+        <Card title="Justifier un retard ou une absence">
+          <form onSubmit={submit}>
+            <div className="feature-filters">
+              <SelectField label="Type" value={kind} onChange={(e) => setKind(e.target.value as JustificationKind)}><option value="LATE">Retard</option><option value="ABSENCE">Absence</option></SelectField>
+              <Field label="Date" type="date" required value={workDate} onChange={(e) => setWorkDate(e.target.value)} />
+            </div>
+            <TextArea id="justify-reason" label="Motif" required maxLength={1000} placeholder="Ex. rendez-vous médical, transport en panne" value={reason} onChange={(e) => setReason(e.target.value)} />
+            <Button type="submit" disabled={saving || !reason.trim()}>{saving ? "Envoi…" : "Envoyer aux RH"}</Button>
+          </form>
+        </Card>
+        <Card title="Mes justifications" meta={`${justifications.length}`}>
+          {loading ? <Loading /> : justifications.length === 0 ? <Empty title="Aucune justification déposée" /> :
+            <ul className="feature-list">{justifications.map((j) => <li key={j.id}>
+              <div className="task-head"><strong>{dayLabel(j.workDate)} · {j.kind === "LATE" ? "Retard" : "Absence"}</strong><Tag tone={j.status === "ACCEPTED" ? "ok" : j.status === "REJECTED" ? "danger" : "accent"}>{justificationStatus[j.status]}</Tag></div>
+              <p style={{ overflowWrap: "anywhere" }}>{j.reason}</p>
+              {j.reviewNote && <small style={{ overflowWrap: "anywhere" }}>Réponse des RH : {j.reviewNote}</small>}
+            </li>)}</ul>}
+        </Card>
       </div>
-      <label className="field">Motif<textarea required maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} /></label>
-      <Button type="submit" disabled={saving || !reason.trim()}>{saving ? 'Envoi…' : 'Déposer la justification'}</Button>
-    </form>
-    <h2>Mes justifications</h2>
-    {loading ? <p>Chargement des justifications…</p> : justifications.length === 0 ? <p>Aucune justification déposée.</p> : <ul className="feature-list">{justifications.map((j) => <li key={j.id}><strong>{j.workDate} · {j.kind === 'LATE' ? 'Retard' : 'Absence'}</strong><p style={{ overflowWrap: 'anywhere' }}>{j.reason}</p><p>{justificationStatus[j.status]}</p>{j.reviewNote && <p style={{ overflowWrap: 'anywhere' }}>Note de traitement : {j.reviewNote}</p>}</li>)}</ul>}
-  </Card>;
+    </div>
+  </Page>;
 }
 const feature: Feature = { path: 'attendance', label: 'Présences', order: 50, Component: AttendancePage };
 export default feature;

@@ -3,7 +3,7 @@ import type { Availability, Task, TaskPriority, TaskStatus } from '@kit-pulse/co
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
-import { Button, Card, Field } from '../../ui/components.tsx';
+import { Button, Card, Empty, Field, Loading, Notice, Page, SelectField, Tag, TextArea, availabilityLabel } from '../../ui/components.tsx';
 import { canAssignTasks, canSubmitAssignment, isVisibleTask, statusForProgress } from './model.ts';
 import { apiErrorMessage, isDevelopmentNotImplemented } from '../team/feedback.ts';
 
@@ -14,6 +14,7 @@ const MOCK_USERS: Availability[] = [
   { userId: 6, fullName: 'Demo — Chantal Exemple', status: 'FIELD', note: null, until: null },
 ];
 const statusLabel: Record<TaskStatus, string> = { TODO: 'À faire', DOING: 'En cours', BLOCKED: 'Bloquée', DONE: 'Terminée', CANCELLED: 'Annulée' };
+const PRIO_RANK: Record<TaskPriority, number> = { URGENT: 0, HIGH: 1, NORMAL: 2, LOW: 3 };
 const priorityLabel: Record<TaskPriority, string> = { LOW: 'Basse', NORMAL: 'Normale', HIGH: 'Haute', URGENT: 'Urgente' };
 
 function TasksPage() {
@@ -81,29 +82,47 @@ function TasksPage() {
     } finally { setSavingProgressId(null); }
   }
 
-  return <Card>
-    <h1>Mes tâches</h1>
-    {demo && <p role="status" className="mock">Données et actions de démonstration — les changements locaux ne sont pas enregistrés sur le serveur.</p>}
-    {error && <p role="alert" className="error">{error}</p>}{notice && <p role="status">{notice}</p>}
-    <h2>Créer une tâche</h2>
-    <form onSubmit={createTask}>
-      <Field label="Titre" required maxLength={160} value={title} onChange={(e) => setTitle(e.target.value)} />
-      <label className="field">Description<textarea maxLength={2000} value={description} onChange={(e) => setDescription(e.target.value)} /></label>
-      <div className="feature-filters">
-        <label className="field">Date de travail<input type="date" required value={workDate} onChange={(e) => setWorkDate(e.target.value)} /></label>
-        <label className="field">Priorité<select value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}>{(['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const).map((p) => <option key={p} value={p}>{priorityLabel[p]}</option>)}</select></label>
-        {canAssign && <label className="field">Attribuer à<select value={assigneeId} onChange={(e) => setAssigneeId(Number(e.target.value))}><option value={user?.id}>Moi</option>{people.filter((p) => p.userId !== user?.id).map((p) => <option key={p.userId} value={p.userId}>{p.fullName} — {p.status === 'FREE' ? 'Libre' : p.status === 'BUSY' ? 'Occupé' : p.status === 'MEETING' ? 'En réunion' : p.status === 'FIELD' ? 'Sur le terrain' : 'Hors ligne'}{peopleDemo ? ' (démo)' : ''}</option>)}</select>{peopleDemo && <small>Choix fictifs : une attribution à une autre personne est désactivée en attendant l’annuaire réel.</small>}</label>}
-      </div>
-      <Button type="submit" disabled={saving || !title.trim()}>{saving ? 'Création…' : 'Créer la tâche'}</Button>
-    </form>
-    <h2>Tâches du jour et en retard</h2>
-    {loading ? <p role="status">Chargement des tâches…</p> : error ? <p>La liste n’a pas pu être chargée.</p> : listed.length === 0 ? <p>Aucune tâche pour aujourd’hui ni en retard.</p> : <ul className="feature-list">{listed.map((t) => <li key={t.id}>
-      <h3 style={{ overflowWrap: 'anywhere' }}>{t.title}</h3>{t.description && <p style={{ overflowWrap: 'anywhere' }}>{t.description}</p>}
-      <p>{statusLabel[t.status]} · Priorité {priorityLabel[t.priority]} · Date {t.workDate}{t.workDate < today() && t.status !== 'DONE' && t.status !== 'CANCELLED' ? ' · En retard' : ''}</p>
-      <label className="field">Progression : {progressDrafts[t.id] ?? t.progress}%<input type="range" min="0" max="100" step="5" value={progressDrafts[t.id] ?? t.progress} disabled={t.status === 'CANCELLED' || savingProgressId === t.id} onChange={(e) => setProgressDrafts((old) => ({ ...old, [t.id]: Number(e.target.value) }))} aria-label={`Progression de ${t.title}`} /></label>
-      {progressDrafts[t.id] !== undefined && <Button type="button" disabled={savingProgressId !== null} onClick={() => void updateProgress(t, progressDrafts[t.id])}>{savingProgressId === t.id ? 'Enregistrement…' : 'Enregistrer la progression'}</Button>}
-    </li>)}</ul>}
-  </Card>;
+  const done = listed.filter((t) => t.status === "DONE").length;
+  const overdue = listed.filter((t) => t.workDate < today() && t.status !== "DONE" && t.status !== "CANCELLED").length;
+  const ordered = [...listed].sort((a, b) => Number(a.status === "DONE") - Number(b.status === "DONE") || PRIO_RANK[a.priority] - PRIO_RANK[b.priority]);
+  return <Page title="Mes tâches" meta={new Date().toLocaleDateString("fr", { weekday: "long", day: "numeric", month: "long" })}>
+    {demo && <Notice tone="warn">Données et actions de démonstration : les changements locaux ne sont pas enregistrés sur le serveur</Notice>}
+    {error && <Notice tone="danger">{error}</Notice>}{notice && <Notice tone="ok">{notice}</Notice>}
+    <section className="card day-goal">
+      <div><span className="stat-label">Ma journée</span><div className="stat-value">{done}<span className="muted" style={{ fontSize: 18 }}> / {listed.length} terminées</span></div></div>
+      <div className="day-goal-bar" role="progressbar" aria-valuemin={0} aria-valuemax={listed.length} aria-valuenow={done} aria-label="Tâches terminées aujourd’hui"><span style={{ width: `${listed.length ? (done / listed.length) * 100 : 0}%` }} /></div>
+      <small>{listed.length === 0 ? "Rien de prévu pour l’instant" : done === listed.length ? "Tout est terminé pour aujourd’hui" : `Encore ${listed.length - done} à terminer${overdue ? `, dont ${overdue} en retard` : ""}`}</small>
+    </section>
+    <div className="split">
+      <Card title="Aujourd’hui et en retard" meta={`${listed.length} tâche${listed.length > 1 ? "s" : ""}`}>
+        {loading ? <Loading /> : error && !tasks.length ? <Empty title="La liste n’a pas pu être chargée" /> : ordered.length === 0 ? <Empty title="Aucune tâche pour aujourd’hui">Créez-en une avec le formulaire</Empty> :
+          <ul className="task-list">{ordered.map((t) => { const value = progressDrafts[t.id] ?? t.progress; const late = t.workDate < today() && t.status !== "DONE" && t.status !== "CANCELLED"; return <li key={t.id} className={t.status === "DONE" ? "is-done" : undefined}>
+            <div className="task-head">
+              <h3>{t.title}</h3>
+              <div className="task-tags">{(t.priority === "HIGH" || t.priority === "URGENT") && <Tag tone={t.priority === "URGENT" ? "danger" : "warn"}>{priorityLabel[t.priority]}</Tag>}{late && <Tag tone="danger">En retard · {t.workDate.slice(8)}/{t.workDate.slice(5, 7)}</Tag>}<Tag tone={t.status === "DONE" ? "ok" : t.status === "DOING" ? "accent" : t.status === "BLOCKED" ? "warn" : "neutral"}>{statusLabel[t.status]}</Tag></div>
+            </div>
+            {t.description && <p className="task-desc">{t.description}</p>}
+            <div className="task-progress">
+              <input type="range" min="0" max="100" step="5" value={value} disabled={t.status === "CANCELLED" || savingProgressId === t.id} onChange={(e) => setProgressDrafts((old) => ({ ...old, [t.id]: Number(e.target.value) }))} aria-label={`Progression de ${t.title}`} style={{ ["--p" as string]: `${value}%` }} />
+              <span className="mono">{value} %</span>
+              {progressDrafts[t.id] !== undefined && <Button size="sm" disabled={savingProgressId !== null} onClick={() => void updateProgress(t, progressDrafts[t.id]!)}>{savingProgressId === t.id ? "Enregistrement…" : value === 100 ? "Marquer terminée" : "Enregistrer"}</Button>}
+            </div>
+          </li>; })}</ul>}
+      </Card>
+      <Card title="Nouvelle tâche">
+        <form onSubmit={createTask}>
+          <Field label="Titre" required maxLength={160} placeholder="Ex. relire le rapport mensuel" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <TextArea label="Description" maxLength={2000} value={description} onChange={(e) => setDescription(e.target.value)} />
+          <div className="feature-filters">
+            <Field label="Date" type="date" required value={workDate} onChange={(e) => setWorkDate(e.target.value)} />
+            <SelectField label="Priorité" value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}>{(["LOW", "NORMAL", "HIGH", "URGENT"] as const).map((p) => <option key={p} value={p}>{priorityLabel[p]}</option>)}</SelectField>
+          </div>
+          {canAssign && <label className="field">Pour<select value={assigneeId} onChange={(e) => setAssigneeId(Number(e.target.value))}><option value={user?.id}>Moi</option>{people.filter((p) => p.userId !== user?.id).map((p) => <option key={p.userId} value={p.userId}>{p.fullName} · {availabilityLabel(p.status)}{peopleDemo ? " (démo)" : ""}</option>)}</select><small>{peopleDemo ? "Choix fictifs : l’attribution à une autre personne est désactivée en attendant l’annuaire réel" : "La disponibilité actuelle s’affiche à côté de chaque nom"}</small></label>}
+          <Button type="submit" icon="plus" disabled={saving || !title.trim()}>{saving ? "Création…" : canAssign && assigneeId !== user?.id ? "Attribuer la tâche" : "Ajouter à ma journée"}</Button>
+        </form>
+      </Card>
+    </div>
+  </Page>;
 }
 const feature: Feature = { path: 'tasks', label: 'Mes tâches', order: 20, Component: TasksPage };
 export default feature;
