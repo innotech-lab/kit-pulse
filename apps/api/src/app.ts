@@ -10,6 +10,8 @@ import { HttpError } from './core/errors.ts';
 
 export async function createApp(ctx: Ctx) {
   const app = express();
+  // Derriere nginx : l'IP reelle du poste vient de X-Forwarded-For (journal, limite d'essais de connexion).
+  if (ctx.config.trustProxy) app.set('trust proxy', ctx.config.trustProxy);
   app.disable('x-powered-by');
   app.use((_req, res, next) => {
     res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'same-origin', 'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" });
