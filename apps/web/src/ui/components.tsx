@@ -1,4 +1,5 @@
 // Francis. Composants communs. Un besoin nouveau = demande a Francis, pas de copie locale.
+import { createPortal } from 'react-dom';
 import { useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import type { AvailabilityStatus } from '@kit-pulse/contracts';
 
@@ -72,7 +73,8 @@ export type Tone = 'neutral' | 'ok' | 'warn' | 'danger' | 'accent';
 export const Tag = ({ tone = 'neutral', children }: { tone?: Tone; children: ReactNode }) =>
   <span className={`tag${tone === 'neutral' ? '' : ` tag-${tone}`}`}>{children}</span>;
 export function Notice({ tone = 'neutral', children }: { tone?: 'neutral' | 'warn' | 'danger' | 'ok'; children: ReactNode }) {
-  const cls = tone === 'danger' ? 'error' : tone === 'warn' ? 'mock' : 'notice';
+  const cls = tone === 'danger' ? 'error' : tone === 'warn' ? 'mock' : tone === 'ok' ? 'toast' : 'notice';
+  if (tone === 'ok') return createPortal(<p role="status" className="toast"><Icon name="check" size={16} />{children}</p>, document.body);
   return <p role={tone === 'danger' ? 'alert' : 'status'} className={cls}>{children}</p>;
 }
 export const Empty = ({ title, children }: { title: string; children?: ReactNode }) =>
@@ -137,13 +139,13 @@ export function Modal({ open, title, meta, onClose, dismissible = true, size = '
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; prev?.focus?.(); };
   }, [open, dismissible, onClose]);
   if (!open) return null;
-  return <div className="modal-backdrop" onMouseDown={(e) => { if (dismissible && e.target === e.currentTarget) onClose(); }}>
+  return createPortal(<div className="modal-backdrop" onMouseDown={(e) => { if (dismissible && e.target === e.currentTarget) onClose(); }}>
     <div ref={ref} className={`modal modal-${size}`} role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined} tabIndex={-1}>
       <header className="modal-head"><div><h2>{title}</h2>{meta && <small>{meta}</small>}</div><button type="button" className="icon-btn modal-x" aria-label="Fermer" title="Fermer" onClick={onClose}><Icon name="x" size={18} /></button></header>
       <div className="modal-body">{children}</div>
       {footer && <footer className="modal-foot">{footer}</footer>}
     </div>
-  </div>;
+  </div>, document.body);
 }
 
 /** Remplace window.confirm : const { confirm, dialog } = useConfirm(); if (!(await confirm({...}))) return; puis rendre {dialog}. */

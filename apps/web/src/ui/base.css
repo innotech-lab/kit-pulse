@@ -305,3 +305,62 @@ tbody tr:hover { background: var(--surface-2); }
 @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(0.99); } }
 @media (prefers-reduced-motion: reduce) { .modal, .modal-backdrop { animation: none; } }
 @media (max-width: 760px) { .modal-backdrop { padding: 0; place-items: end stretch; } .modal { max-height: 92vh; border-radius: var(--r-panel) var(--r-panel) 0 0; } }
+
+/* ---------- Agenda : la semaine tient sur un ecran ---------- */
+.week-nav { display: inline-flex; align-items: center; gap: var(--s-1); }
+.compact-select { height: 36px; padding: 0 var(--s-8) 0 var(--s-3); border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: var(--surface); font: 500 var(--t-sm)/1 var(--font); color: var(--text); }
+.cal { padding: 0; display: grid; grid-template-rows: auto 1fr auto; height: calc(100vh - 180px); min-height: 520px; overflow: hidden; }
+.cal > * + * { margin-top: 0; }
+.cal-head, .cal-body { display: grid; grid-template-columns: 56px repeat(5, minmax(0, 1fr)); }
+.cal-head { border-bottom: 1px solid var(--line); }
+.cal-day { display: flex; align-items: baseline; gap: var(--s-2); padding: var(--s-3) var(--s-3); border-left: 1px solid var(--line); color: var(--text-2); }
+.cal-day span { font-size: var(--t-sm); text-transform: capitalize; }
+.cal-day strong { font: 600 var(--t-xl)/1 var(--font-display); color: var(--text); font-variant-numeric: tabular-nums; }
+.cal-day.is-today strong { display: inline-grid; place-items: center; min-width: 30px; height: 30px; border-radius: 15px; background: var(--accent); color: var(--on-accent); font-size: var(--t-md); }
+.cal-day.is-today span { color: var(--accent-ink); }
+.cal-body { position: relative; min-height: 0; }
+.cal-hours { position: relative; }
+.cal-hours span { position: absolute; right: var(--s-2); transform: translateY(-50%); font: var(--t-xs)/1 var(--mono); color: var(--text-3); }
+.cal-hours span:first-child { transform: translateY(2px); }
+.cal-col { position: relative; display: grid; grid-template-rows: repeat(22, 1fr); border-left: 1px solid var(--line); min-height: 0; }
+.cal-col.is-today { background: rgb(90 63 209 / 0.025); }
+.cal-slot { position: relative; border: 0; background: transparent; padding: 0; cursor: pointer; border-top: 1px solid transparent; transition: background-color var(--d-fast) var(--ease); }
+.cal-slot:nth-child(odd) { border-top-color: var(--line); }
+.cal-slot span { position: absolute; left: var(--s-2); top: 50%; transform: translateY(-50%); font: 500 var(--t-xs)/1 var(--mono); color: var(--accent-ink); opacity: 0; transition: opacity var(--d-fast) var(--ease); }
+.cal-slot span::before { content: '+ '; }
+.cal-slot:hover, .cal-slot:focus-visible { background: var(--accent-soft); outline: none; }
+.cal-slot:hover span, .cal-slot:focus-visible span { opacity: 1; }
+.cal-event { position: absolute; left: 4px; right: 4px; z-index: 1; display: grid; align-content: start; gap: 2px; padding: 6px 8px; overflow: hidden; text-align: left; border: 0; border-left: 3px solid var(--k); border-radius: 6px; background: var(--k-soft); color: var(--text); font: 400 var(--t-sm)/1.25 var(--font); cursor: pointer; transition: box-shadow var(--d-fast) var(--ease); }
+.cal-event:hover { box-shadow: var(--shadow-pop); }
+.cal-event:focus-visible { outline: 2px solid var(--k); outline-offset: 1px; }
+.cal-event strong { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-event span { font-size: 11px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-event.is-short { grid-auto-flow: column; justify-content: start; align-items: center; gap: var(--s-2); padding-block: 2px; }
+.kind-meeting { --k: var(--accent); --k-soft: var(--accent-soft); }
+.kind-field { --k: var(--warn); --k-soft: var(--warn-soft); }
+.kind-focus { --k: var(--ok); --k-soft: var(--ok-soft); }
+.kind-other { --k: var(--n-400); --k-soft: var(--n-100); }
+.cal-now { position: absolute; left: 0; right: 0; z-index: 2; height: 2px; background: var(--now); pointer-events: none; }
+.cal-now::before { content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--now); }
+.cal-hint { padding: var(--s-3) var(--s-5); border-top: 1px solid var(--line); font-size: var(--t-xs); color: var(--text-3); }
+.kind-pick { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.kind-chip { display: inline-flex; align-items: center; gap: var(--s-2); height: 32px; padding: 0 var(--s-3); border: 1px solid var(--line-strong); border-radius: 16px; font-size: var(--t-sm); color: var(--text-2); cursor: pointer; transition: background-color var(--d-fast) var(--ease), border-color var(--d-fast) var(--ease); }
+.kind-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.kind-chip::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--k); }
+.kind-chip:has(input:checked) { border-color: var(--k); background: var(--k-soft); color: var(--text); }
+.kind-chip:has(input:focus-visible) { outline: 2px solid var(--k); outline-offset: 2px; }
+.form-row-3 { display: grid; gap: var(--s-3); grid-template-columns: 1.4fr 1fr 1fr; }
+.push-left { margin-right: auto; }
+@media (max-width: 760px) {
+  .cal { height: auto; min-height: 0; overflow-x: auto; }
+  .cal-head, .cal-body { min-width: 640px; }
+  .cal-body { height: 560px; }
+  .form-row-3 { grid-template-columns: 1fr 1fr; }
+  .form-row-3 > :first-child { grid-column: 1 / -1; }
+}
+
+/* ---------- Notifications flottantes : jamais dans le flux, jamais de defilement ---------- */
+.toast { position: fixed; right: var(--s-6); bottom: var(--s-6); z-index: 60; display: flex; align-items: center; gap: var(--s-2); max-width: min(420px, calc(100vw - 32px)); padding: var(--s-3) var(--s-4); border-radius: 10px; background: var(--n-900); color: #fff; font-size: var(--t-sm); box-shadow: var(--shadow-pop); animation: toast 4.5s var(--ease) forwards; pointer-events: none; }
+.toast svg { color: #7ad3a3; flex: none; }
+@keyframes toast { 0% { opacity: 0; transform: translateY(8px); } 6%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(4px); visibility: hidden; } }
+@media (max-width: 760px) { .toast { left: var(--s-4); right: var(--s-4); bottom: var(--s-4); } }
