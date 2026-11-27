@@ -41,7 +41,7 @@ export const ROUTES: RouteDef[] = [
   r('Stany', 'presence', 'get', '/rejections', HR, 'PRES-005', 'Tentatives refusees'),
   r('Dancile', 'attendance', 'get', '/me', 'ALL', 'ATT-001', 'Mes journees'),
   r('Dancile', 'attendance', 'get', '/', HR, 'ATT-002', 'Journees de toute une equipe'),
-  r('Dancile', 'attendance', 'get', '/schedule', 'ALL', 'ATT-003', 'Horaire de travail'),
+  r('Dancile', 'attendance', 'get', '/schedule', 'PUBLIC', 'ATT-003', 'Horaire de travail (public : affiche sur la page de connexion)'),
   r('Dancile', 'attendance', 'put', '/schedule', HR, 'ATT-003', 'Modifier les horaires'),
   r('Dancile', 'attendance', 'get', '/holidays', 'ALL', 'ATT-004', 'Jours feries'),
   r('Dancile', 'attendance', 'post', '/holidays', HR, 'ATT-004', 'Ajouter un jour ferie'),

@@ -1,15 +1,26 @@
 // Alain (logique), Francis (validation visuelle).
 import { useEffect, useState, type FormEvent } from 'react';
 import { Button, Clock, DayLine, DayScale, Field, useSecondClock } from '../ui/components.tsx';
+import { api } from './api.ts';
 import { useSession } from './session.tsx';
 
 const useClock = useSecondClock;
+interface ScheduleDay { weekday: number; startTime: string; endTime: string; graceMinutes: number }
+const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const FALLBACK: ScheduleDay = { weekday: 1, startTime: '08:00', endTime: '17:00', graceMinutes: 10 };
+/** Horaire reel (base de donnees) du jour, ou du premier jour travaille ; valeur par defaut si l'API ne repond pas. */
+function useSchedule(weekday: number): ScheduleDay {
+  const [days, setDays] = useState<ScheduleDay[]>([]);
+  useEffect(() => { api<ScheduleDay[]>('GET', '/attendance/schedule').then(setDays).catch(() => {}); }, []);
+  return days.find((d) => d.weekday === weekday) ?? days[0] ?? FALLBACK;
+}
 
 export function Login() {
   const { login } = useSession();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const now = useClock();
+  const sched = useSchedule(now.getDay() || 7);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -38,9 +49,9 @@ export function Login() {
             <Clock now={now} className="clock" />
           </div>
           <div style={{ display: 'grid', gap: 12 }}>
-            <DayLine firstIn={null} lastOut={null} now label="Journée de travail" />
+            <DayLine firstIn={null} lastOut={null} now label="Journée de travail" work={[toMin(sched.startTime), toMin(sched.endTime)]} />
             <DayScale />
-            <p>Journée de 08:00 à 17:00, tolérance de 10 minutes à l’arrivée</p>
+            <p>Journée de {sched.startTime} à {sched.endTime}, tolérance de {sched.graceMinutes} minute{sched.graceMinutes > 1 ? 's' : ''} à l’arrivée</p>
           </div>
         </div>
       </div>
