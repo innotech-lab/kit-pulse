@@ -22,3 +22,20 @@ test('ATT-001/002 : seed du 24/11 conforme a la QA, equipe reservee ADMIN/HR', a
     assert.equal((await api.call('GET', '/attendance/me?from=2026-11-25&to=2026-11-01', { cookie: member })).status, 400);
   } finally { await api.close(); }
 });
+
+test('ATT-004 : jours feries du Burundi charges, jamais une absence, ajout reserve ADMIN/HR', async () => {
+  const api = await startTestApi();
+  try {
+    const member = await api.login('daniel'), rh = await api.login('rh');
+    const list = await api.call('GET', '/attendance/holidays?from=2026-01-01&to=2026-12-31', { cookie: member });
+    assert.equal(list.status, 200);
+    assert.ok(list.json.some((h: { date: string }) => h.date === '2026-07-01'));
+    assert.ok(list.json.some((h: { date: string }) => h.date === '2026-11-02'), 'Toussaint reportee du dimanche au lundi');
+    assert.equal(list.json.length, 15);
+    assert.equal((await api.call('POST', '/attendance/holidays', { cookie: member, body: { date: '2026-12-26', label: 'Test' } })).status, 403);
+    assert.equal((await api.call('POST', '/attendance/holidays', { cookie: rh, body: { date: '2026-03-20', label: 'Aïd el-Fitr' } })).status, 201);
+    api.ctx.db.prepare("INSERT INTO punches (user_id, type, at, work_date, simulated, source, created_by) VALUES (4,'IN','2026-04-01T06:00:00.000Z','2026-04-01',1,'AGENT',4)").run();
+    const day = (await api.call('GET', '/attendance/me?from=2026-04-06&to=2026-04-06', { cookie: member })).json[0];
+    assert.equal(day.status, 'HOLIDAY');
+  } finally { await api.close(); }
+});

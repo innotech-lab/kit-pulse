@@ -1,5 +1,6 @@
-// Dancile. Routes d'assiduite (ATT-001, ATT-002). ATT-003/004 (P1/P2) coupes pour la demo.
-import { Range, RangeForUser } from '@kit-pulse/contracts';
+// Dancile. Routes d'assiduite (ATT-001, ATT-002, ATT-004). ATT-003 (P1) coupe pour la demo.
+import { HolidayInput, Range, RangeForUser } from '@kit-pulse/contracts';
+import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
 import { createModule, parse, todo } from '../../core/module.ts';
 import { computeDays } from './public.ts';
@@ -19,7 +20,18 @@ export default function attendanceModule(ctx: Ctx) {
   });
   route('get', '/schedule', todo('ATT-003')); // Horaire de travail
   route('put', '/schedule', todo('ATT-003')); // Modifier les horaires
-  route('get', '/holidays', todo('ATT-004')); // Jours feries
-  route('post', '/holidays', todo('ATT-004')); // Ajouter un jour ferie
+  route('get', '/holidays', ({ query }) => {
+    const q = query as { from?: string; to?: string };
+    const day = /^\d{4}-\d{2}-\d{2}$/;
+    const from = day.test(q.from ?? '') ? q.from! : '0000-01-01', to = day.test(q.to ?? '') ? q.to! : '9999-12-31';
+    return ctx.db.prepare('SELECT date, label FROM holidays WHERE date BETWEEN ? AND ? ORDER BY date').all(from, to);
+  });
+  route('post', '/holidays', ({ body, user, res }) => {
+    const input = parse(HolidayInput, body);
+    ctx.db.prepare('INSERT INTO holidays (date, label) VALUES (?, ?) ON CONFLICT(date) DO UPDATE SET label = excluded.label').run(input.date, input.label);
+    audit(ctx, user.id, 'HOLIDAY_SET', 'holiday', input.date, { label: input.label });
+    res.status(201);
+    return input;
+  });
   return router;
 }
