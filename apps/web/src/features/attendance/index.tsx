@@ -3,7 +3,7 @@ import type { AttendanceDay, Justification, JustificationKind } from '@kit-pulse
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
-import { Button, Card, DayLine, Empty, Field, Loading, Notice, Page, SelectField, Stat, Tag, TextArea } from '../../ui/components.tsx';
+import { Button, Card, DayLine, Empty, Field, Loading, Modal, Notice, Page, SelectField, Stat, Tag, TextArea } from '../../ui/components.tsx';
 import { attendanceStatusLabel } from './model.ts';
 import { apiErrorMessage, isDevelopmentNotImplemented } from '../team/feedback.ts';
 
@@ -21,6 +21,7 @@ function AttendancePage() {
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
+  const [showForm, setShowForm] = useState(false);
   const from = `${new Date().getFullYear()}-01-01`;
   const to = `${new Date().getFullYear()}-12-31`;
   const mockDays: AttendanceDay[] = [
@@ -44,7 +45,7 @@ function AttendancePage() {
     event.preventDefault(); setSaving(true); setError(''); setNotice('');
     try {
       const created = await api<Justification>('POST', '/justifications', { body: { workDate, kind, reason } });
-      setJustifications((old) => [created, ...old]); setNotice('Justification déposée.'); setReason('');
+      setJustifications((old) => [created, ...old]); setNotice('Justification envoyée aux RH'); setReason(''); setShowForm(false);
     } catch (e) {
       if (e instanceof ApiError && isDevelopmentNotImplemented(e.status, import.meta.env.DEV)) {
         setJustifications((old) => [{ id: -Date.now(), userId: user?.id ?? -1, workDate, kind, reason, status: 'PENDING', reviewNote: null }, ...old]);
@@ -59,9 +60,9 @@ function AttendancePage() {
   const toJustify = worked.filter((d) => (d.status === "LATE" || d.status === "ABSENT") && !d.justificationStatus);
   const hhmm = (v: string) => new Date(v).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" });
   const dayLabel = (v: string) => new Date(`${v}T12:00:00`).toLocaleDateString("fr", { weekday: "short", day: "numeric", month: "short" });
-  function prefill(d: AttendanceDay) { setKind(d.status === "LATE" ? "LATE" : "ABSENCE"); setWorkDate(d.workDate); document.getElementById("justify-reason")?.focus(); }
+  function prefill(d: AttendanceDay) { setKind(d.status === "LATE" ? "LATE" : "ABSENCE"); setWorkDate(d.workDate); setShowForm(true); }
   const tone = (d: AttendanceDay) => d.status === "PRESENT" ? "ok" : d.status === "LATE" ? (d.justified ? "neutral" : "warn") : d.status === "ABSENT" ? (d.justified ? "neutral" : "danger") : "neutral";
-  return <Page title="Mes présences" meta={`${new Date().getFullYear()} · depuis mon arrivée`}>
+  return <Page title="Mes présences" meta={`${new Date().getFullYear()} · depuis mon arrivée`} actions={<Button icon="plus" onClick={() => setShowForm(true)}>Justifier un retard ou une absence</Button>}>
     {demo && <Notice tone="warn">Données de démonstration : elles ne correspondent pas à votre présence réelle</Notice>}
     {error && <Notice tone="danger">Impossible de charger ou transmettre les informations : {error}</Notice>}
     {notice && <Notice tone="ok">{notice}</Notice>}
@@ -69,7 +70,7 @@ function AttendancePage() {
       <Stat label="Jours pointés" value={worked.filter((d) => d.status === "PRESENT" || d.status === "LATE").length} note={`sur ${worked.filter((d) => d.status !== "PENDING").length} jours travaillés`} accent />
       <Stat label="Retards" value={worked.filter((d) => d.status === "LATE").length} note={`${worked.filter((d) => d.status === "LATE" && d.justified).length} justifiés`} />
       <Stat label="Absences" value={worked.filter((d) => d.status === "ABSENT").length} note={`${worked.filter((d) => d.status === "ABSENT" && d.justified).length} justifiées`} />
-      <Stat label="À justifier" value={toJustify.length} note={toJustify.length ? "un clic sur Justifier remplit le formulaire" : "rien en attente de votre part"} />
+      <Stat label="À justifier" value={toJustify.length} note={toJustify.length ? "bouton Justifier sur la journée" : "rien en attente de votre part"} />
     </div>
     <div className="split">
       <Card title="Mes journées" meta="08:00 – 17:00">
@@ -86,16 +87,16 @@ function AttendancePage() {
           </table></div>}
       </Card>
       <div className="grid">
-        <Card title="Justifier un retard ou une absence">
-          <form onSubmit={submit}>
+        <Modal open={showForm} dismissible={false} onClose={() => setShowForm(false)} title="Justifier un retard ou une absence" meta="Votre demande part aux RH, qui l’acceptent ou la refusent" footer={<><Button variant="secondary" onClick={() => setShowForm(false)}>Annuler</Button><Button type="submit" form="justify-form" disabled={saving || !reason.trim()}>{saving ? "Envoi…" : "Envoyer aux RH"}</Button></>}>
+          <form id="justify-form" onSubmit={submit}>
             <div className="feature-filters">
               <SelectField label="Type" value={kind} onChange={(e) => setKind(e.target.value as JustificationKind)}><option value="LATE">Retard</option><option value="ABSENCE">Absence</option></SelectField>
               <Field label="Date" type="date" required value={workDate} onChange={(e) => setWorkDate(e.target.value)} />
             </div>
             <TextArea id="justify-reason" label="Motif" required maxLength={1000} placeholder="Ex. rendez-vous médical, transport en panne" value={reason} onChange={(e) => setReason(e.target.value)} />
-            <Button type="submit" disabled={saving || !reason.trim()}>{saving ? "Envoi…" : "Envoyer aux RH"}</Button>
+            {error && <Notice tone="danger">{error}</Notice>}
           </form>
-        </Card>
+        </Modal>
         <Card title="Mes justifications" meta={`${justifications.length}`}>
           {loading ? <Loading /> : justifications.length === 0 ? <Empty title="Aucune justification déposée" /> :
             <ul className="feature-list">{justifications.map((j) => <li key={j.id}>

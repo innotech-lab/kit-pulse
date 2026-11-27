@@ -4,7 +4,7 @@ import type { AttendanceDay, PersonReport } from '@kit-pulse/contracts';
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
-import { Avatar, Button, Card, DayLine, Empty, Loading, Notice, Page, Stat, Tag } from '../../ui/components.tsx';
+import { Avatar, Button, Card, Modal, DayLine, Empty, Loading, Notice, Page, Stat, Tag } from '../../ui/components.tsx';
 
 type Period = 'week' | 'month';
 interface PresentNow { userId: number; fullName: string; present: boolean; firstIn: string | null; lastPunchAt: string | null }
@@ -61,7 +61,7 @@ function TeamChart({ days }: { days: AttendanceDay[] }) {
 
 function PersonPanel({ person, days, onClose }: { person: PersonReport; days: AttendanceDay[]; onClose: () => void }) {
   const mine = days.filter((d) => d.userId === person.userId && d.status !== 'OFF');
-  return <Card title={<span style={{ display: 'flex', alignItems: 'center', gap: 12 }}><Avatar name={person.fullName} />{person.fullName}</span>} meta={`${person.presentDays} / ${person.expectedDays} jours`}>
+  return <Modal open size="lg" onClose={onClose} title={<span style={{ display: 'flex', alignItems: 'center', gap: 12 }}><Avatar name={person.fullName} />{person.fullName}</span>} meta={`${person.presentDays} jours pointés sur ${person.expectedDays} attendus`}>
     <div className="stats">
       <Stat label="Présence" value={`${pctOf(person.presentDays, person.expectedDays)} %`} accent />
       <Stat label="Retards" value={person.lateJustified + person.lateUnjustified} note={`${person.lateUnjustified} non justifiés`} />
@@ -77,8 +77,7 @@ function PersonPanel({ person, days, onClose }: { person: PersonReport; days: At
           {d.status === 'PRESENT' ? 'À l’heure' : d.status === 'LATE' ? `Retard ${d.minutesLate} min${d.justified ? ' · justifié' : ''}` : d.status === 'ABSENT' ? (d.justified ? 'Absence justifiée' : 'Absent') : 'À venir'}
         </Tag>
       </div>)}</div>}
-    <Button variant="secondary" icon="x" onClick={onClose}>Fermer la fiche</Button>
-  </Card>;
+  </Modal>;
 }
 
 function DashboardPage() {
@@ -144,7 +143,7 @@ function DashboardPage() {
 
       {person && days && <PersonPanel person={person} days={days} onClose={() => setSelected(null)} />}
 
-      <Card title="Bilan par personne" meta="Sélectionnez une ligne pour ouvrir la fiche">
+      <Card title="Bilan par personne" meta="Cliquez sur une personne pour ouvrir sa fiche">
         {!reports ? <Loading /> : reports.length === 0 ? <Empty title="Aucune personne active" /> :
           <div className="table-scroll"><table>
             <thead><tr><th>Personne</th><th className="num-col">Présence</th><th className="num-col">Retards</th><th className="num-col">Absences</th><th className="num-col">Tâches</th><th>Progression</th></tr></thead>

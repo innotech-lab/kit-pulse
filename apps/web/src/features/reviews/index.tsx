@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Justification } from '@kit-pulse/contracts';
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
-import { Avatar, Button, Card, Empty, Loading, Notice, Page, Tag } from '../../ui/components.tsx';
+import { Avatar, Button, Card, Empty, Loading, Notice, Page, Tag, useConfirm } from '../../ui/components.tsx';
 import { pendingReviews, requiresRefusalConfirmation, REVIEW_ROLES } from './model.ts';
 import { apiErrorMessage, isDevelopmentNotImplemented } from '../team/feedback.ts';
 
@@ -18,6 +18,7 @@ function ReviewsPage() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [notice, setNotice] = useState('');
   const [names, setNames] = useState<Record<number, string>>({});
+  const { confirm, dialog } = useConfirm();
   useEffect(() => { api<{ id: number; fullName: string }[]>('GET', '/users/directory').then((d) => setNames(Object.fromEntries(d.map((u) => [u.id, u.fullName])))).catch(() => {}); }, []);
 
   useEffect(() => {
@@ -28,7 +29,7 @@ function ReviewsPage() {
   }, []);
 
   async function review(item: Justification, status: 'ACCEPTED' | 'REJECTED') {
-    if (requiresRefusalConfirmation(status) && !window.confirm('Confirmer le refus de cette justification ?')) return;
+    if (requiresRefusalConfirmation(status) && !(await confirm({ title: 'Refuser cette justification ?', message: `${names[item.userId] ?? 'La personne'} verra la demande comme refusée et la journée restera non justifiée.`, confirmLabel: 'Refuser', danger: true }))) return;
     setBusyId(item.id); setError(''); setNotice('');
     try {
       await api('POST', `/justifications/${item.id}/review`, { body: { status, note: null } });
@@ -63,6 +64,7 @@ function ReviewsPage() {
       <div className="table-scroll"><table><thead><tr><th>Personne</th><th>Jour</th><th>Type</th><th>Décision</th></tr></thead>
         <tbody>{done.map((j) => <tr key={j.id}><td>{who(j.userId)}</td><td>{day(j.workDate)}</td><td>{j.kind === "LATE" ? "Retard" : "Absence"}</td><td><Tag tone={j.status === "ACCEPTED" ? "ok" : "danger"}>{j.status === "ACCEPTED" ? "Acceptée" : "Refusée"}</Tag></td></tr>)}</tbody></table></div>
     </Card>}
+    {dialog}
     <small>Réservé aux rôles ADMIN et RH. Chaque décision est enregistrée et tracée par le serveur ; on ne traite jamais sa propre justification.</small>
   </Page>;
 }

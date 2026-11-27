@@ -3,7 +3,7 @@ import type { Availability, Task, TaskPriority, TaskStatus } from '@kit-pulse/co
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
-import { Button, Card, Empty, Field, Loading, Notice, Page, SelectField, Tag, TextArea, availabilityLabel } from '../../ui/components.tsx';
+import { Button, Card, Empty, Field, Loading, Modal, Notice, Page, SelectField, Tag, TextArea, availabilityLabel } from '../../ui/components.tsx';
 import { canAssignTasks, canSubmitAssignment, isVisibleTask, statusForProgress } from './model.ts';
 import { apiErrorMessage, isDevelopmentNotImplemented } from '../team/feedback.ts';
 
@@ -34,6 +34,7 @@ function TasksPage() {
   const [progressDrafts, setProgressDrafts] = useState<Record<number, number>>({});
   const [savingProgressId, setSavingProgressId] = useState<number | null>(null);
   const [notice, setNotice] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
   const canAssign = user ? canAssignTasks(user.role) : false;
 
   useEffect(() => {
@@ -57,7 +58,7 @@ function TasksPage() {
     const payload = { title, description: description.trim() || null, assigneeId: assignedTo, priority, workDate, dueDate: null };
     try {
       const created = await api<Task>('POST', '/tasks', { body: payload });
-      setTasks((old) => [created, ...old]); setNotice('Tâche créée.'); setTitle(''); setDescription('');
+      setTasks((old) => [created, ...old]); setNotice('Tâche ajoutée'); setTitle(''); setDescription(''); setShowCreate(false);
     } catch (e) {
       if (e instanceof ApiError && isDevelopmentNotImplemented(e.status, import.meta.env.DEV)) {
         const created: Task = { id: -Date.now(), ...payload, createdBy: user?.id ?? -1, status: 'TODO', progress: 0 };
@@ -85,7 +86,7 @@ function TasksPage() {
   const done = listed.filter((t) => t.status === "DONE").length;
   const overdue = listed.filter((t) => t.workDate < today() && t.status !== "DONE" && t.status !== "CANCELLED").length;
   const ordered = [...listed].sort((a, b) => Number(a.status === "DONE") - Number(b.status === "DONE") || PRIO_RANK[a.priority] - PRIO_RANK[b.priority]);
-  return <Page title="Mes tâches" meta={new Date().toLocaleDateString("fr", { weekday: "long", day: "numeric", month: "long" })}>
+  return <Page title="Mes tâches" meta={new Date().toLocaleDateString("fr", { weekday: "long", day: "numeric", month: "long" })} actions={<Button icon="plus" onClick={() => setShowCreate(true)}>Nouvelle tâche</Button>}>
     {demo && <Notice tone="warn">Données et actions de démonstration : les changements locaux ne sont pas enregistrés sur le serveur</Notice>}
     {error && <Notice tone="danger">{error}</Notice>}{notice && <Notice tone="ok">{notice}</Notice>}
     <section className="card day-goal">
@@ -93,9 +94,8 @@ function TasksPage() {
       <div className="day-goal-bar" role="progressbar" aria-valuemin={0} aria-valuemax={listed.length} aria-valuenow={done} aria-label="Tâches terminées aujourd’hui"><span style={{ width: `${listed.length ? (done / listed.length) * 100 : 0}%` }} /></div>
       <small>{listed.length === 0 ? "Rien de prévu pour l’instant" : done === listed.length ? "Tout est terminé pour aujourd’hui" : `Encore ${listed.length - done} à terminer${overdue ? `, dont ${overdue} en retard` : ""}`}</small>
     </section>
-    <div className="split">
-      <Card title="Aujourd’hui et en retard" meta={`${listed.length} tâche${listed.length > 1 ? "s" : ""}`}>
-        {loading ? <Loading /> : error && !tasks.length ? <Empty title="La liste n’a pas pu être chargée" /> : ordered.length === 0 ? <Empty title="Aucune tâche pour aujourd’hui">Créez-en une avec le formulaire</Empty> :
+    <Card title="Aujourd’hui et en retard" meta={`${listed.length} tâche${listed.length > 1 ? "s" : ""}`}>
+        {loading ? <Loading /> : error && !tasks.length ? <Empty title="La liste n’a pas pu être chargée" /> : ordered.length === 0 ? <Empty title="Aucune tâche pour aujourd’hui">Ajoutez-en une avec « Nouvelle tâche »</Empty> :
           <ul className="task-list">{ordered.map((t) => { const value = progressDrafts[t.id] ?? t.progress; const late = t.workDate < today() && t.status !== "DONE" && t.status !== "CANCELLED"; return <li key={t.id} className={t.status === "DONE" ? "is-done" : undefined}>
             <div className="task-head">
               <h3>{t.title}</h3>
@@ -109,8 +109,8 @@ function TasksPage() {
             </div>
           </li>; })}</ul>}
       </Card>
-      <Card title="Nouvelle tâche">
-        <form onSubmit={createTask}>
+      <Modal open={showCreate} dismissible={false} onClose={() => setShowCreate(false)} title="Nouvelle tâche" footer={<><Button variant="secondary" onClick={() => setShowCreate(false)}>Annuler</Button><Button type="submit" form="task-form" icon="plus" disabled={saving || !title.trim()}>{saving ? "Création…" : canAssign && assigneeId !== user?.id ? "Attribuer la tâche" : "Ajouter à ma journée"}</Button></>}>
+        <form id="task-form" onSubmit={createTask}>
           <Field label="Titre" required maxLength={160} placeholder="Ex. relire le rapport mensuel" value={title} onChange={(e) => setTitle(e.target.value)} />
           <TextArea label="Description" maxLength={2000} value={description} onChange={(e) => setDescription(e.target.value)} />
           <div className="feature-filters">
@@ -118,10 +118,9 @@ function TasksPage() {
             <SelectField label="Priorité" value={priority} onChange={(e) => setPriority(e.target.value as TaskPriority)}>{(["LOW", "NORMAL", "HIGH", "URGENT"] as const).map((p) => <option key={p} value={p}>{priorityLabel[p]}</option>)}</SelectField>
           </div>
           {canAssign && <label className="field">Pour<select value={assigneeId} onChange={(e) => setAssigneeId(Number(e.target.value))}><option value={user?.id}>Moi</option>{people.filter((p) => p.userId !== user?.id).map((p) => <option key={p.userId} value={p.userId}>{p.fullName} · {availabilityLabel(p.status)}{peopleDemo ? " (démo)" : ""}</option>)}</select><small>{peopleDemo ? "Choix fictifs : l’attribution à une autre personne est désactivée en attendant l’annuaire réel" : "La disponibilité actuelle s’affiche à côté de chaque nom"}</small></label>}
-          <Button type="submit" icon="plus" disabled={saving || !title.trim()}>{saving ? "Création…" : canAssign && assigneeId !== user?.id ? "Attribuer la tâche" : "Ajouter à ma journée"}</Button>
+          {error && <Notice tone="danger">{error}</Notice>}
         </form>
-      </Card>
-    </div>
+      </Modal>
   </Page>;
 }
 const feature: Feature = { path: 'tasks', label: 'Mes tâches', order: 20, Component: TasksPage };
