@@ -1,17 +1,18 @@
 // Francis. Tableau de bord equipe (WEB-DASH-001) et vue d'une personne (WEB-DASH-002).
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AttendanceDay, PersonReport } from '@kit-pulse/contracts';
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
-import { Avatar, Button, Card, Modal, DayLine, Empty, Loading, Notice, Page, Stat, Tag } from '../../ui/components.tsx';
+import { Avatar, Button, Card, IconButton, Modal, DayLine, Empty, Loading, Notice, Page, Stat, Tag } from '../../ui/components.tsx';
 
-type Period = 'week' | 'month';
+type Period = 'day' | 'week' | 'month';
 interface PresentNow { userId: number; fullName: string; present: boolean; firstIn: string | null; lastPunchAt: string | null }
 
 const iso = (d: Date) => d.toLocaleDateString('en-CA');
-function range(p: Period) {
+function range(p: Period, day: string) {
   const t = new Date();
+  if (p === 'day') return { from: day, to: day };
   if (p === 'week') { const wd = t.getDay() || 7; const mon = new Date(t); mon.setDate(t.getDate() - wd + 1); return { from: iso(mon), to: iso(t) }; }
   return { from: iso(new Date(t.getFullYear(), t.getMonth(), 1)), to: iso(t) };
 }
@@ -84,7 +85,11 @@ function PersonPanel({ person, days, onClose }: { person: PersonReport; days: At
 
 function DashboardPage() {
   const { user } = useSession();
-  const [period, setPeriod] = useState<Period>('week');
+  const [period, setPeriod] = useState<Period>('day');
+  const [day, setDay] = useState(() => iso(new Date()));
+  const lastToday = useRef(iso(new Date()));
+  const [updated, setUpdated] = useState<Date | null>(null);
+  const [detail, setDetail] = useState<'present' | 'late' | 'absent' | null>(null);
   const [reports, setReports] = useState<PersonReport[] | null>(null);
   const [days, setDays] = useState<AttendanceDay[] | null>(null);
   const [now, setNow] = useState<PresentNow[] | null>(null);
@@ -95,37 +100,53 @@ function DashboardPage() {
 
   useEffect(() => {
     let live = true;
-    const { from, to } = range(period);
+    const { from, to } = range(period, day);
     setReports(null); setDays(null); setError('');
-    api<PersonReport[]>('GET', `/reports/team?from=${from}&to=${to}`).then((r) => live && setReports(r)).catch((e: Error) => live && setError(e.message));
-    if (canSeeDays) api<AttendanceDay[]>('GET', `/attendance?from=${from}&to=${to}`).then((d) => live && setDays(d)).catch(() => live && setDays([]));
-    else setDays([]);
-    return () => { live = false; };
-  }, [period, canSeeDays]);
+    const refresh = () => {
+      api<PersonReport[]>('GET', `/reports/team?from=${from}&to=${to}`).then((r) => { if (live) { setReports(r); setUpdated(new Date()); } }).catch((e: Error) => { if (live) setError(e.message); });
+      if (canSeeDays) api<AttendanceDay[]>('GET', `/attendance?from=${from}&to=${to}`).then((d) => { if (live) setDays(d); }).catch((e: Error) => { if (live) setError(e.message); });
+      else setDays([]);
+    };
+    refresh();
+    const timer = window.setInterval(() => { if (period === 'day' && day === iso(new Date())) refresh(); }, 60_000);
+    return () => { live = false; window.clearInterval(timer); };
+  }, [period, day, canSeeDays]);
   useEffect(() => {
-    api<PresentNow[]>('GET', '/presence/today').then(setNow).catch(() => setNow([]));
+    let live = true;
+    const refresh = () => {
+      const today = iso(new Date());
+      if (today !== lastToday.current) { const previous = lastToday.current; lastToday.current = today; setDay((value) => value === previous ? today : value); }
+      api<PresentNow[]>('GET', '/presence/today').then((value) => { if (live) { setNow(value); setUpdated(new Date()); } }).catch((e: Error) => { if (live) setError(e.message); });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
     if (canSeeDays) api<{ status: string }[]>('GET', '/justifications').then((j) => setPending(j.filter((x) => x.status === 'PENDING').length)).catch((e: unknown) => { if (!(e instanceof ApiError)) setPending(null); });
+    return () => { live = false; window.clearInterval(timer); };
   }, [canSeeDays]);
 
   const team = reports?.filter((r) => r.expectedDays > 0) ?? [];
   const totals = team.reduce((t, r) => ({ exp: t.exp + r.expectedDays, pres: t.pres + r.presentDays, lateU: t.lateU + r.lateUnjustified, late: t.late + r.lateJustified + r.lateUnjustified, absU: t.absU + r.absentUnjustified }), { exp: 0, pres: 0, lateU: 0, late: 0, absU: 0 });
   const presentNow = now?.filter((p) => p.present) ?? [];
   const person = reports?.find((r) => r.userId === selected) ?? null;
-  const { from, to } = range(period);
+  const { from, to } = range(period, day);
+  const names = new Map(reports?.map((r) => [r.userId, r.fullName]) ?? []);
+  const detailDays = (days ?? []).filter((d) => detail === 'late' ? d.status === 'LATE' : d.status === 'ABSENT' && !d.justified).sort((a, b) => b.workDate.localeCompare(a.workDate));
+  const moveDay = (offset: number) => { const d = new Date(`${day}T12:00:00`); d.setDate(d.getDate() + offset); setDay(iso(d)); };
 
   return (
-    <Page title="Tableau de bord" meta={`${period === 'week' ? 'Semaine en cours' : new Date().toLocaleDateString('fr', { month: 'long', year: 'numeric' })} · du ${short(from)} au ${short(to)}`}
-      actions={<div className="segmented" role="group" aria-label="Période">
+    <Page title="Tableau de bord" meta={<>{period === 'day' ? new Date(`${day}T12:00:00`).toLocaleDateString('fr', { weekday: 'long', day: 'numeric', month: 'long' }) : `${period === 'week' ? 'Semaine en cours' : new Date().toLocaleDateString('fr', { month: 'long', year: 'numeric' })} · du ${short(from)} au ${short(to)}`}{updated && <> · <small>Mis à jour à {hhmm(updated.toISOString())}</small></>}</>}
+      actions={<><div className="segmented" role="group" aria-label="Période">
+        <button type="button" aria-pressed={period === 'day'} onClick={() => setPeriod('day')}>Jour</button>
         <button type="button" aria-pressed={period === 'week'} onClick={() => setPeriod('week')}>Semaine</button>
         <button type="button" aria-pressed={period === 'month'} onClick={() => setPeriod('month')}>Mois</button>
-      </div>}>
+      </div>{period === 'day' && <div className="feature-actions"><IconButton icon="chevronLeft" label="Jour précédent" onClick={() => moveDay(-1)} /><Button size="sm" variant="secondary" onClick={() => setDay(iso(new Date()))}>Aujourd'hui</Button><IconButton icon="chevronRight" label="Jour suivant" onClick={() => moveDay(1)} /></div>}</>}>
       {error && <Notice tone="danger">Impossible de charger le bilan : {error}</Notice>}
 
       <div className="stats">
-        <Stat label="Présents maintenant" value={now ? <>{presentNow.length}<span className="muted" style={{ fontSize: 16 }}> / {now.length}</span></> : '–'} note="d’après le dernier pointage" accent />
+        <Stat label="Présents maintenant" value={now ? <>{presentNow.length}<span className="muted" style={{ fontSize: 16 }}> / {now.length}</span></> : '–'} note="d’après le dernier pointage" accent onClick={() => setDetail('present')} />
         <Stat label="Taux de présence" value={reports ? `${pctOf(totals.pres, totals.exp)} %` : '–'} note={`${totals.pres} journées sur ${totals.exp} attendues`} />
-        <Stat label="Retards" value={reports ? totals.late : '–'} note={`${totals.lateU} sans justification`} />
-        <Stat label="Absences non justifiées" value={reports ? totals.absU : '–'} note={pending !== null ? `${pending} justification${pending > 1 ? 's' : ''} à traiter` : 'sur la période'} />
+        <Stat label="Retards" value={reports ? totals.late : '–'} note={`${totals.lateU} sans justification`} onClick={canSeeDays ? () => setDetail('late') : undefined} />
+        <Stat label="Absences non justifiées" value={reports ? totals.absU : '–'} note={pending !== null ? `${pending} justification${pending > 1 ? 's' : ''} à traiter` : 'sur la période'} onClick={canSeeDays ? () => setDetail('absent') : undefined} />
       </div>
 
       <div className="split">
@@ -144,6 +165,12 @@ function DashboardPage() {
       </div>
 
       {person && days && <PersonPanel person={person} days={days} onClose={() => setSelected(null)} />}
+      <Modal open={detail !== null} size="lg" dismissible onClose={() => setDetail(null)} title={detail === 'present' ? 'Présents maintenant' : detail === 'late' ? 'Retards' : 'Absences non justifiées'} meta={detail === 'present' ? 'D’après le dernier pointage' : `Du ${short(from)} au ${short(to)}`}>
+        {detail === 'present' ? !now ? <Loading /> : now.length === 0 ? <Empty title="Aucun compte actif" /> : <>
+          {presentNow.length === 0 && <Empty title="Aucune personne présente actuellement" />}
+          <ul className="people">{[...now].sort((a, b) => Number(b.present) - Number(a.present) || a.fullName.localeCompare(b.fullName)).map((p) => <li key={p.userId} className={p.present ? undefined : 'muted'}><Avatar name={p.fullName} /><div><strong>{p.fullName}</strong><small>{p.present ? (p.firstIn ? `Arrivé à ${hhmm(p.firstIn)}` : 'Présent') : p.lastPunchAt ? `Parti à ${hhmm(p.lastPunchAt)}` : 'Absent actuellement'}</small></div></li>)}</ul>
+        </> : !days || !reports ? <Loading /> : detailDays.length === 0 ? <Empty title={detail === 'late' ? 'Aucun retard sur cette période' : 'Aucune absence non justifiée sur cette période'} /> : <ul className="feature-list">{detailDays.map((d) => <li key={`${d.userId}-${d.workDate}`}><div className="feature-actions"><Avatar name={names.get(d.userId) ?? `Compte ${d.userId}`} /><strong>{names.get(d.userId) ?? `Compte ${d.userId}`}</strong><span>{short(d.workDate)}</span>{detail === 'late' ? <><span>{d.minutesLate} min</span><Tag tone={d.justified ? 'ok' : 'warn'}>{d.justified ? 'Justifié' : 'Non justifié'}</Tag></> : d.justificationStatus === 'PENDING' && <Tag tone="accent">Justification en attente</Tag>}</div></li>)}</ul>}
+      </Modal>
 
       <Card title="Bilan par personne" meta="Cliquez sur une personne pour ouvrir sa fiche">
         {!reports ? <Loading /> : reports.length === 0 ? <Empty title="Aucune personne active" /> :

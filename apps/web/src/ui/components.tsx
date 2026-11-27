@@ -57,8 +57,11 @@ export function Page({ title, meta, actions, children }: { title: string; meta?:
     {children}
   </div>;
 }
-export const Stat = ({ label, value, note, accent }: { label: string; value: ReactNode; note?: ReactNode; accent?: boolean }) =>
-  <div className={`stat${accent ? ' is-accent' : ''}`}><span className="stat-label">{label}</span><span className="stat-value">{value}</span>{note && <span className="stat-note">{note}</span>}</div>;
+export const Stat = ({ label, value, note, accent, onClick }: { label: string; value: ReactNode; note?: ReactNode; accent?: boolean; onClick?: () => void }) => {
+  const content = <><span className="stat-label">{label}{onClick && <Icon name="chevronRight" size={16} />}</span><span className="stat-value">{value}</span>{note && <span className="stat-note">{note}</span>}</>;
+  const className = `stat${accent ? ' is-accent' : ''}${onClick ? ' is-clickable' : ''}`;
+  return onClick ? <button type="button" className={className} onClick={onClick}>{content}</button> : <div className={className}>{content}</div>;
+};
 
 /* ---------- Champs ---------- */
 export const Field = ({ label, hint, ...p }: InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: string }) =>
