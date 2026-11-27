@@ -8,6 +8,7 @@ import { attendanceStatusLabel } from './model.ts';
 import { apiErrorMessage, isDevelopmentNotImplemented } from '../team/feedback.ts';
 
 const justificationStatus: Record<Justification['status'], string> = { PENDING: 'En attente', ACCEPTED: 'Acceptée', REJECTED: 'Refusée' };
+const formatMinutes = (minutes: number) => minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
 
 function AttendancePage() {
   const { user } = useSession();
@@ -58,6 +59,8 @@ function AttendancePage() {
   const worked = days.filter((d) => d.status !== "OFF" && d.status !== "HOLIDAY" && d.workDate <= todayIso);
   const recent = [...worked].reverse();
   const toJustify = worked.filter((d) => (d.status === "LATE" || d.status === "ABSENT") && !d.justificationStatus);
+  const overtimeMinutes = worked.reduce((total, d) => total + d.minutesEarly + d.minutesAfter, 0);
+  const overtimeDays = worked.filter((d) => d.minutesEarly + d.minutesAfter > 0).length;
   const hhmm = (v: string) => new Date(v).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" });
   const dayLabel = (v: string) => new Date(`${v}T12:00:00`).toLocaleDateString("fr", { weekday: "short", day: "numeric", month: "short" });
   function prefill(d: AttendanceDay) { setKind(d.status === "LATE" ? "LATE" : "ABSENCE"); setWorkDate(d.workDate); setShowForm(true); }
@@ -68,19 +71,20 @@ function AttendancePage() {
     {notice && <Notice tone="ok">{notice}</Notice>}
     <div className="stats">
       <Stat label="Jours pointés" value={worked.filter((d) => d.status === "PRESENT" || d.status === "LATE").length} note={`sur ${worked.filter((d) => d.status !== "PENDING").length} jours travaillés`} accent />
-      <Stat label="Retards" value={worked.filter((d) => d.status === "LATE").length} note={`${worked.filter((d) => d.status === "LATE" && d.justified).length} justifiés`} />
-      <Stat label="Absences" value={worked.filter((d) => d.status === "ABSENT").length} note={`${worked.filter((d) => d.status === "ABSENT" && d.justified).length} justifiées`} />
+      <Stat label="Retards et absences" value={`${worked.filter((d) => d.status === "LATE").length} / ${worked.filter((d) => d.status === "ABSENT").length}`} note="retards / absences" />
+      <Stat label="Heures sup" value={formatMinutes(overtimeMinutes)} note={`${overtimeDays} jours · à valider par les RH`} />
       <Stat label="À justifier" value={toJustify.length} note={toJustify.length ? "bouton Justifier sur la journée" : "rien en attente de votre part"} />
     </div>
     <div className="split">
       <Card title="Mes journées" meta="08:00 – 17:00">
         {loading ? <Loading /> : recent.length === 0 ? <Empty title="Aucune journée à afficher" /> :
           <div className="table-scroll"><table>
-            <thead><tr><th>Jour</th><th style={{ width: "36%" }}>Journée</th><th>Horaires</th><th>Statut</th><th /></tr></thead>
+            <thead><tr><th>Jour</th><th style={{ width: "36%" }}>Journée</th><th>Horaires</th><th>Heures sup</th><th>Statut</th><th /></tr></thead>
             <tbody>{recent.map((d) => <tr key={`${d.userId}-${d.workDate}`}>
               <td style={{ whiteSpace: "nowrap" }}>{dayLabel(d.workDate)}</td>
               <td><DayLine early={d.minutesEarly} after={d.minutesAfter} firstIn={d.firstIn} lastOut={d.lastOut} late={d.status === "LATE"} now={d.status === "PENDING"} /></td>
               <td className="mono" style={{ whiteSpace: "nowrap" }}>{d.firstIn ? hhmm(d.firstIn) : "--:--"} – {d.lastOut ? hhmm(d.lastOut) : d.missingOut ? "sortie oubliée" : "--:--"}</td>
+              <td>{d.minutesEarly + d.minutesAfter > 0 ? <><span className="mono">{formatMinutes(d.minutesEarly + d.minutesAfter)}</span><small style={{ display: 'block' }}>{[d.minutesEarly ? `${d.minutesEarly} min avant` : '', d.minutesAfter ? `${d.minutesAfter} min après` : ''].filter(Boolean).join(' · ')}</small></> : <span className="muted">–</span>}</td>
               <td><Tag tone={tone(d)}>{attendanceStatusLabel(d)}{d.status === "LATE" ? ` · ${d.minutesLate} min` : ""}</Tag>{d.justificationStatus && !d.justified && <small style={{ display: "block", marginTop: 4 }}>{justificationStatus[d.justificationStatus]}</small>}</td>
               <td className="num-col">{(d.status === "LATE" || d.status === "ABSENT") && !d.justificationStatus && <Button size="sm" variant="secondary" onClick={() => prefill(d)}>Justifier</Button>}</td>
             </tr>)}</tbody>
