@@ -83,3 +83,34 @@ export const PersonReport = z.object({
   tasksPlanned: z.number().int(), tasksDone: z.number().int(), averageProgress: z.number(),
 });
 export type PersonReport = z.infer<typeof PersonReport>;
+
+// Types inferes (manquaient : debloque le typecheck du web).
+export type Id = z.infer<typeof Id>;
+export type WorkDate = z.infer<typeof WorkDate>;
+export type IsoDate = z.infer<typeof IsoDate>;
+export type Range = z.infer<typeof Range>;
+export type RangeForUser = z.infer<typeof RangeForUser>;
+export type Password = z.infer<typeof Password>;
+export type LoginInput = z.infer<typeof LoginInput>;
+export type ChangePasswordInput = z.infer<typeof ChangePasswordInput>;
+export type BadgeId = z.infer<typeof BadgeId>;
+export type CreateUserInput = z.infer<typeof CreateUserInput>;
+export type UpdateUserInput = z.infer<typeof UpdateUserInput>;
+export type ResetPasswordInput = z.infer<typeof ResetPasswordInput>;
+export type AddMacInput = z.infer<typeof AddMacInput>;
+export type EnrollInput = z.infer<typeof EnrollInput>;
+export type ApproveDeviceInput = z.infer<typeof ApproveDeviceInput>;
+export type ChallengeInput = z.infer<typeof ChallengeInput>;
+export type ManualPunchInput = z.infer<typeof ManualPunchInput>;
+export type ScheduleDay = z.infer<typeof ScheduleDay>;
+export type UpdateScheduleInput = z.infer<typeof UpdateScheduleInput>;
+export type HolidayInput = z.infer<typeof HolidayInput>;
+export type JustificationInput = z.infer<typeof JustificationInput>;
+export type ReviewInput = z.infer<typeof ReviewInput>;
+export type Justification = z.infer<typeof Justification>;
+export type CreateTaskInput = z.infer<typeof CreateTaskInput>;
+export type UpdateTaskInput = z.infer<typeof UpdateTaskInput>;
+export type ProgressInput = z.infer<typeof ProgressInput>;
+export type AvailabilityInput = z.infer<typeof AvailabilityInput>;
+export type AgendaInput = z.infer<typeof AgendaInput>;
+export type AgendaUpdateInput = z.infer<typeof AgendaUpdateInput>;

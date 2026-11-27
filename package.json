@@ -17,7 +17,7 @@
     "db:fingerprint": "node db/verify.ts --write",
     "admin:create": "node db/create-admin.ts",
     "typecheck": "tsc -p tsconfig.json && tsc -p apps/web/tsconfig.json",
-    "test": "node --test \"db/**/*.test.ts\" \"packages/**/*.test.ts\" \"apps/api/**/*.test.ts\" \"apps/agent/**/*.test.ts\" \"scripts/**/*.test.mjs\"",
+    "test": "node --test \"db/**/*.test.ts\" \"packages/**/*.test.ts\" \"apps/api/**/*.test.ts\" \"apps/agent/**/*.test.ts\" \"scripts/**/*.test.mjs\" \"apps/web/**/*.test.ts\"",
     "build": "npm --workspace apps/web run build",
     "check": "npm run typecheck && npm test && npm run build && npm run db:verify",
     "owner:check": "node scripts/check-ownership.mjs"

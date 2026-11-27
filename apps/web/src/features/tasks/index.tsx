@@ -47,9 +47,6 @@ function TasksPage() {
   }, []);
 
   const listed = useMemo(() => tasks.filter((t) => isVisibleTask(t, today())), [tasks]);
-  const mockTasks: Task[] = [
-    { id: -1, title: 'Exemple : préparer le compte rendu', description: 'Tâche fictive de démonstration.', assigneeId: user?.id ?? -1, createdBy: user?.id ?? -1, priority: 'NORMAL', status: 'DOING', progress: 35, workDate: today(), dueDate: null },
-  ];
 
   async function createTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError(''); setNotice('');
@@ -106,7 +103,6 @@ function TasksPage() {
       <label className="field">Progression : {progressDrafts[t.id] ?? t.progress}%<input type="range" min="0" max="100" step="5" value={progressDrafts[t.id] ?? t.progress} disabled={t.status === 'CANCELLED' || savingProgressId === t.id} onChange={(e) => setProgressDrafts((old) => ({ ...old, [t.id]: Number(e.target.value) }))} aria-label={`Progression de ${t.title}`} /></label>
       {progressDrafts[t.id] !== undefined && <Button type="button" disabled={savingProgressId !== null} onClick={() => void updateProgress(t, progressDrafts[t.id])}>{savingProgressId === t.id ? 'Enregistrement…' : 'Enregistrer la progression'}</Button>}
     </li>)}</ul>}
-    {import.meta.env.DEV && <details><summary>Données fictives de démonstration</summary><p>Les exemples ci-dessous ne sont pas des tâches réelles.</p><ul>{mockTasks.map((t) => <li key={t.id}>{t.title}</li>)}</ul></details>}
   </Card>;
 }
 const feature: Feature = { path: 'tasks', label: 'Mes tâches', order: 20, Component: TasksPage };
