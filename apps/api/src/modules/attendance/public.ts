@@ -20,7 +20,8 @@ const minutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.sl
 export function computeDays(ctx: Ctx, userId: number, from: string, to: string): AttendanceDay[] {
   if (from > to) throw badRequest('INVALID_RANGE', 'from doit preceder to.');
   const tz = ctx.config.timezone;
-  const today = localParts(ctx.now(), tz).date;
+  const current = localParts(ctx.now(), tz);
+  const today = current.date;
 
   // On ne compte pas de journees avant l'arrivee de la personne (creation du compte ou premier pointage).
   const user = ctx.db.prepare('SELECT created_at FROM users WHERE id = ?').get(userId) as { created_at: string } | undefined;
@@ -62,7 +63,7 @@ export function computeDays(ctx: Ctx, userId: number, from: string, to: string):
     else if (firstIn) {
       const late = minutes(localParts(new Date(firstIn), tz).time) - minutes(sched.start);
       if (late > sched.grace) { status = 'LATE'; minutesLate = late; } else status = 'PRESENT';
-    } else status = date < today ? 'ABSENT' : 'PENDING';
+    } else status = date < today || (date === today && minutes(current.time) > minutes(sched.start) + sched.grace) ? 'ABSENT' : 'PENDING';
     const kind = status === 'LATE' ? 'LATE' : status === 'ABSENT' ? 'ABSENCE' : null;
     const justificationStatus = kind ? justs.get(`${date}|${kind}`) ?? null : null;
     // Heures sup mesurees : avant le debut, apres la fin ; jour ferie ou non travaille pointe = toute la presence.

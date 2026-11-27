@@ -2,6 +2,26 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startTestApi } from '../../testing.ts';
 
+test('Absence du jour apres la tolerance, puis retard au pointage', async () => {
+  const api = await startTestApi();
+  try {
+    const member = await api.login('daniel');
+    const getDay = async () => (await api.call('GET', '/attendance/me?from=2026-11-25&to=2026-11-25', { cookie: member })).json[0];
+    api.setClock('2026-11-25T05:30:00.000Z');
+    assert.equal((await getDay()).status, 'PENDING');
+    api.setClock('2026-11-25T06:10:00.000Z');
+    assert.equal((await getDay()).status, 'PENDING');
+    api.setClock('2026-11-25T07:00:00.000Z');
+    assert.equal((await getDay()).status, 'ABSENT');
+    api.ctx.db.prepare("INSERT INTO justifications (user_id, work_date, kind, reason, status, created_at) VALUES (4, '2026-11-25', 'ABSENCE', 'Test', 'ACCEPTED', '2026-11-25T07:00:00.000Z')").run();
+    assert.equal((await getDay()).justified, true);
+    api.ctx.db.prepare("INSERT INTO punches (user_id, type, at, work_date, simulated, source, created_by) VALUES (4, 'IN', '2026-11-25T07:05:00.000Z', '2026-11-25', 1, 'AGENT', 4)").run();
+    api.setClock('2026-11-25T07:05:00.000Z');
+    const day = await getDay();
+    assert.deepEqual([day.status, day.minutesLate, day.justificationStatus], ['LATE', 65, null]);
+  } finally { await api.close(); }
+});
+
 test('ATT-001/002 : seed du 24/11 conforme a la QA, equipe reservee ADMIN/HR', async () => {
   const api = await startTestApi();
   try {
