@@ -2,6 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startTestApi } from '../../testing.ts';
 
+test('ATT-003 : lecture, remplacement atomique, validation et droits', async () => {
+  const api = await startTestApi();
+  try {
+    const member = await api.login('daniel'), rh = await api.login('rh');
+    assert.equal((await api.call('GET', '/attendance/schedule', { cookie: member })).json.length, 5);
+    const days = [{ weekday: 1, startTime: '09:00', endTime: '18:00', graceMinutes: 15 }];
+    assert.equal((await api.call('PUT', '/attendance/schedule', { cookie: member, body: { days } })).status, 403);
+    assert.equal((await api.call('PUT', '/attendance/schedule', { cookie: rh, body: { days: [{ ...days[0], endTime: '08:00' }] } })).status, 400);
+    assert.equal((await api.call('GET', '/attendance/schedule', { cookie: member })).json.length, 5);
+    assert.deepEqual((await api.call('PUT', '/attendance/schedule', { cookie: rh, body: { days } })).json, days);
+    assert.ok(api.ctx.db.prepare("SELECT id FROM audit_log WHERE action = 'SCHEDULE_SET'").get());
+  } finally { await api.close(); }
+});
+
 test('Absence du jour apres la tolerance, puis retard au pointage', async () => {
   const api = await startTestApi();
   try {
