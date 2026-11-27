@@ -12,6 +12,7 @@ export const Password = z.string().min(10).max(128);
 
 // --- Comptes (Daniel)
 export const LoginInput = z.object({ email: z.email().max(160), password: z.string().min(1).max(128) });
+export const EmailDomainInput = z.object({ domain: z.string().trim().toLowerCase().regex(/^[a-z0-9-]+(\.[a-z0-9-]+)+$/, 'Ex. kit-hub.com') });
 export const ChangePasswordInput = z.object({ current: z.string().min(1).max(128), next: Password });
 export const User = z.object({
   id: Id, badgeId: z.string(), email: z.string(), fullName: z.string(), role: Role,
@@ -95,6 +96,7 @@ export type Range = z.infer<typeof Range>;
 export type RangeForUser = z.infer<typeof RangeForUser>;
 export type Password = z.infer<typeof Password>;
 export type LoginInput = z.infer<typeof LoginInput>;
+export type EmailDomainInput = z.infer<typeof EmailDomainInput>;
 export type ChangePasswordInput = z.infer<typeof ChangePasswordInput>;
 export type BadgeId = z.infer<typeof BadgeId>;
 export type CreateUserInput = z.infer<typeof CreateUserInput>;

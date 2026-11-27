@@ -2,6 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startTestApi } from '../../testing.ts';
 
+test('USER-006 : domaine partage et modification reservee aux administrateurs', async () => {
+  const api = await startTestApi();
+  try {
+    const admin = await api.login('admin'), member = await api.login('stany');
+    assert.equal((await api.call('GET', '/users/email-domain', { cookie: member })).json.domain, 'kit-hub.com');
+    assert.equal((await api.call('PUT', '/users/email-domain', { cookie: member, body: { domain: 'exemple.org' } })).status, 403);
+    assert.equal((await api.call('PUT', '/users/email-domain', { cookie: admin, body: { domain: 'pas un domaine' } })).status, 400);
+    assert.equal((await api.call('PUT', '/users/email-domain', { cookie: admin, body: { domain: ' Exemple.ORG ' } })).json.domain, 'exemple.org');
+    assert.equal((await api.call('GET', '/users/email-domain', { cookie: member })).json.domain, 'exemple.org');
+    assert.ok(api.ctx.db.prepare("SELECT id FROM audit_log WHERE action = 'EMAIL_DOMAIN_SET'").get());
+  } finally { await api.close(); }
+});
+
 test('USER-001 a 005 : creation, doublons 409, modification, desactivation coupe les sessions', async () => {
   const api = await startTestApi();
   try {

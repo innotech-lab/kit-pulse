@@ -13,6 +13,8 @@ export const ROUTES: RouteDef[] = [
   r('Daniel', 'auth', 'get', '/me', 'ALL', 'AUTH-001', 'Compte connecte'),
   r('Daniel', 'auth', 'post', '/change-password', 'ALL', 'AUTH-002', 'Changer son mot de passe'),
   r('Daniel', 'users', 'get', '/directory', 'ALL', 'USER-001', 'Annuaire minimal des comptes actifs'),
+  r('Daniel', 'users', 'get', '/email-domain', 'ALL', 'USER-006', 'Lire le domaine email'),
+  r('Daniel', 'users', 'put', '/email-domain', ADMIN, 'USER-006', 'Modifier le domaine email'),
   r('Daniel', 'users', 'get', '/', HR, 'USER-001', 'Lister les comptes'),
   r('Daniel', 'users', 'post', '/', ADMIN, 'USER-002', 'Creer un compte et son ID KIT-HUB'),
   r('Daniel', 'users', 'patch', '/:id', ADMIN, 'USER-003', 'Modifier un compte ou son ID KIT-HUB'),

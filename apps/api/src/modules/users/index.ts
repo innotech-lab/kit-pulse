@@ -1,5 +1,5 @@
 // Daniel. Comptes et IDs KIT-HUB (USER-001 a USER-005).
-import { CreateUserInput, Id, ResetPasswordInput, UpdateUserInput, type DirectoryEntry } from '@kit-pulse/contracts';
+import { CreateUserInput, EmailDomainInput, Id, ResetPasswordInput, UpdateUserInput, type DirectoryEntry } from '@kit-pulse/contracts';
 import { hashPassword } from '../../../../../db/lib.ts';
 import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
@@ -22,6 +22,13 @@ export default function usersModule(ctx: Ctx) {
   route('get', '/directory', (): DirectoryEntry[] =>
     (ctx.db.prepare('SELECT id, badge_id, full_name, job_title FROM users WHERE is_active = 1 ORDER BY full_name').all() as Record<string, unknown>[])
       .map((r) => ({ id: r.id as number, badgeId: r.badge_id as string, fullName: r.full_name as string, jobTitle: (r.job_title as string | null) ?? null })));
+  route('get', '/email-domain', () => ({ domain: ctx.db.prepare("SELECT value FROM settings WHERE key = 'email_domain'").get()!.value as string }));
+  route('put', '/email-domain', ({ body, user }) => {
+    const { domain } = parse(EmailDomainInput, body);
+    ctx.db.prepare("UPDATE settings SET value = ? WHERE key = 'email_domain'").run(domain);
+    audit(ctx, user.id, 'EMAIL_DOMAIN_SET', 'settings', 'email_domain', { domain });
+    return { domain };
+  });
   route('get', '/', () => (ctx.db.prepare('SELECT * FROM users ORDER BY is_active DESC, full_name').all() as Record<string, unknown>[]).map(toUser));
   route('post', '/', ({ body, user, res }) => {
     const input = parse(CreateUserInput, body);
