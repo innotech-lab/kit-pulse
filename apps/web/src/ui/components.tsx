@@ -1,5 +1,5 @@
 // Francis. Composants communs. Un besoin nouveau = demande a Francis, pas de copie locale.
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import type { AvailabilityStatus } from '@kit-pulse/contracts';
 
 /* ---------- Icones (trace lucide, 1.5 de trait, une seule taille par contexte) ---------- */
@@ -118,3 +118,43 @@ export function StatusIcon({ status }: { status: AvailabilityStatus }) {
 /** Graduations sous une frise : heures placees exactement. */
 export const DayScale = ({ hours = [8, 10, 12, 14, 17] }: { hours?: number[] }) =>
   <div className="dayscale" aria-hidden="true">{hours.map((h) => <span key={h} style={{ left: pct(h * 60) }}>{String(h).padStart(2, '0')}:00</span>)}</div>;
+
+/* ---------- Superposition ----------
+   dismissible (defaut true) : clic a cote ou Echap ferment (consultation).
+   dismissible={false} : saisie en cours, fermeture uniquement par la croix ou apres l'action. */
+export function Modal({ open, title, meta, onClose, dismissible = true, size = 'md', children, footer }: {
+  open: boolean; title: ReactNode; meta?: ReactNode; onClose: () => void; dismissible?: boolean; size?: 'sm' | 'md' | 'lg'; children: ReactNode; footer?: ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.activeElement as HTMLElement | null;
+    const first = ref.current?.querySelector<HTMLElement>('input:not([type=hidden]), select, textarea, button:not(.modal-x)');
+    (first ?? ref.current)?.focus();
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && dismissible) onClose(); };
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; prev?.focus?.(); };
+  }, [open, dismissible, onClose]);
+  if (!open) return null;
+  return <div className="modal-backdrop" onMouseDown={(e) => { if (dismissible && e.target === e.currentTarget) onClose(); }}>
+    <div ref={ref} className={`modal modal-${size}`} role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined} tabIndex={-1}>
+      <header className="modal-head"><div><h2>{title}</h2>{meta && <small>{meta}</small>}</div><button type="button" className="icon-btn modal-x" aria-label="Fermer" title="Fermer" onClick={onClose}><Icon name="x" size={18} /></button></header>
+      <div className="modal-body">{children}</div>
+      {footer && <footer className="modal-foot">{footer}</footer>}
+    </div>
+  </div>;
+}
+
+/** Remplace window.confirm : const { confirm, dialog } = useConfirm(); if (!(await confirm({...}))) return; puis rendre {dialog}. */
+export function useConfirm() {
+  const [state, setState] = useState<{ title: string; message?: ReactNode; confirmLabel: string; danger?: boolean; resolve: (v: boolean) => void } | null>(null);
+  const confirm = (o: { title: string; message?: ReactNode; confirmLabel?: string; danger?: boolean }) =>
+    new Promise<boolean>((resolve) => setState({ confirmLabel: 'Confirmer', ...o, resolve }));
+  const close = (v: boolean) => { state?.resolve(v); setState(null); };
+  const dialog = <Modal open={!!state} size="sm" title={state?.title ?? ''} onClose={() => close(false)}
+    footer={<><Button variant="secondary" onClick={() => close(false)}>Annuler</Button><Button variant={state?.danger ? 'danger' : 'primary'} onClick={() => close(true)}>{state?.confirmLabel}</Button></>}>
+    {state?.message && <p className="muted">{state.message}</p>}
+  </Modal>;
+  return { confirm, dialog };
+}
