@@ -15,6 +15,16 @@ test('USER-006 : domaine partage et modification reservee aux administrateurs', 
   } finally { await api.close(); }
 });
 
+test('creation sans badge : prochain identifiant attribue', async () => {
+  const api = await startTestApi();
+  try {
+    const admin = await api.login('admin');
+    const created = await api.call('POST', '/users', { cookie: admin, body: { email: 'nouveau@kit-hub.com', fullName: 'Nouveau', role: 'MEMBER', password: 'Mot-de-passe-1' } });
+    assert.equal(created.status, 201);
+    assert.equal(created.json.badgeId, 'KH-011');
+  } finally { await api.close(); }
+});
+
 test('USER-001 a 005 : creation, doublons 409, modification, desactivation coupe les sessions', async () => {
   const api = await startTestApi();
   try {

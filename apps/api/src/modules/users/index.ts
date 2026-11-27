@@ -1,6 +1,6 @@
 // Daniel. Comptes et IDs KIT-HUB (USER-001 a USER-005).
 import { CreateUserInput, EmailDomainInput, Id, ResetPasswordInput, UpdateUserInput, type DirectoryEntry } from '@kit-pulse/contracts';
-import { hashPassword } from '../../../../../db/lib.ts';
+import { hashPassword, transaction } from '../../../../../db/lib.ts';
 import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
 import { badRequest, conflict, notFound } from '../../core/errors.ts';
@@ -32,12 +32,18 @@ export default function usersModule(ctx: Ctx) {
   route('get', '/', () => (ctx.db.prepare('SELECT * FROM users ORDER BY is_active DESC, full_name').all() as Record<string, unknown>[]).map(toUser));
   route('post', '/', ({ body, user, res }) => {
     const input = parse(CreateUserInput, body);
-    assertUnique(input.email, input.badgeId);
     const now = ctx.now().toISOString();
-    const r = ctx.db.prepare('INSERT INTO users (badge_id, email, full_name, role, job_title, password_hash, must_change_password, created_at, updated_at) VALUES (?,?,?,?,?,?,1,?,?)')
-      .run(input.badgeId, input.email, input.fullName, input.role, input.jobTitle, hashPassword(input.password), now, now);
-    const id = Number(r.lastInsertRowid);
-    audit(ctx, user.id, 'USER_CREATE', 'user', id, { badgeId: input.badgeId, role: input.role });
+    const passwordHash = hashPassword(input.password);
+    const id = transaction(ctx.db, () => {
+      const ids = ctx.db.prepare('SELECT badge_id FROM users').all().map((r) => /^KH-(\d+)$/.exec(r.badge_id as string)).filter((m) => m !== null).map((m) => Number(m[1]));
+      const badgeId = input.badgeId ?? `KH-${String(Math.max(0, ...ids) + 1).padStart(3, '0')}`;
+      assertUnique(input.email, badgeId);
+      const r = ctx.db.prepare('INSERT INTO users (badge_id, email, full_name, role, job_title, password_hash, must_change_password, created_at, updated_at) VALUES (?,?,?,?,?,?,1,?,?)')
+        .run(badgeId, input.email, input.fullName, input.role, input.jobTitle, passwordHash, now, now);
+      const createdId = Number(r.lastInsertRowid);
+      audit(ctx, user.id, 'USER_CREATE', 'user', createdId, { badgeId, role: input.role });
+      return createdId;
+    });
     res.status(201);
     return toUser(byId(id));
   });

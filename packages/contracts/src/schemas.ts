@@ -20,7 +20,7 @@ export const User = z.object({
 });
 export type User = z.infer<typeof User>;
 export const BadgeId = z.string().trim().regex(/^[A-Z0-9-]{3,20}$/, 'Ex. KH-001');
-export const CreateUserInput = z.object({ badgeId: BadgeId, email: z.email().max(160), fullName: text(120), role: Role, jobTitle: text(120).nullable().default(null), password: Password });
+export const CreateUserInput = z.object({ badgeId: BadgeId.optional(), email: z.email().max(160), fullName: text(120), role: Role, jobTitle: text(120).nullable().default(null), password: Password });
 export const UpdateUserInput = z.object({ badgeId: BadgeId, email: z.email().max(160), fullName: text(120), role: Role, jobTitle: text(120).nullable() }).partial();
 export const ResetPasswordInput = z.object({ password: Password });
 export const DirectoryEntry = z.object({ id: Id, badgeId: z.string(), fullName: z.string(), jobTitle: z.string().nullable() });
