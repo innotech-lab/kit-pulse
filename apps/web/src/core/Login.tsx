@@ -1,13 +1,9 @@
 // Alain (logique), Francis (validation visuelle).
 import { useEffect, useState, type FormEvent } from 'react';
-import { Button, DayLine, DayScale, Field } from '../ui/components.tsx';
+import { Button, Clock, DayLine, DayScale, Field, useSecondClock } from '../ui/components.tsx';
 import { useSession } from './session.tsx';
 
-function useClock() {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => { const t = setInterval(() => setNow(new Date()), 15_000); return () => clearInterval(t); }, []);
-  return now;
-}
+const useClock = useSecondClock;
 
 export function Login() {
   const { login } = useSession();
@@ -39,7 +35,7 @@ export function Login() {
         <div className="login-side" aria-hidden="true">
           <div style={{ display: 'grid', gap: 8 }}>
             <span className="mono" style={{ color: 'var(--n-400)' }}>{now.toLocaleDateString('fr', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
-            <span className="clock">{now.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' })}</span>
+            <Clock now={now} className="clock" />
           </div>
           <div style={{ display: 'grid', gap: 12 }}>
             <DayLine firstIn={null} lastOut={null} now label="Journée de travail" />

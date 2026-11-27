@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Attestation, AttendanceDay, Punch, PunchType } from '@kit-pulse/contracts';
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
-import { Button, Card, DayLine, DayScale, Empty, Loading, Notice, Page, Tag, minutesOf, useAutoRefresh } from '../../ui/components.tsx';
+import { Clock, Button, Card, DayLine, DayScale, Empty, Loading, Notice, Page, Tag, minutesOf, useAutoRefresh } from '../../ui/components.tsx';
 
 type Step = 'agent' | 'device' | 'network' | 'saved';
 const STEPS: { key: Step; label: string }[] = [
@@ -40,7 +40,7 @@ const DAY_TAG: Record<AttendanceDay['status'], { tone: 'ok' | 'warn' | 'danger' 
 
 function useNow() {
   const [now, setNow] = useState(() => new Date());
-  useEffect(() => { const t = setInterval(() => setNow(new Date()), 15_000); return () => clearInterval(t); }, []);
+  useEffect(() => { let t = 0; const tick = () => { setNow(new Date()); t = window.setTimeout(tick, 1000 - (Date.now() % 1000)); }; t = window.setTimeout(tick, 1000 - (Date.now() % 1000)); return () => window.clearTimeout(t); }, []);
   return now;
 }
 
@@ -79,7 +79,7 @@ function PunchPage() {
       <section className="card punch-hero">
         <div className="punch-top">
           <div>
-            <div className="punch-clock num">{now.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' })}</div>
+            <div className="punch-clock num"><Clock now={now} /></div>
             <p className="muted">
               {!today ? 'Lecture de vos pointages…'
                 : !firstIn ? 'Pas encore pointé aujourd’hui'

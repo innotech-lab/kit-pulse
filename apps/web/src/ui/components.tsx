@@ -207,3 +207,23 @@ export function RefreshButton() {
   async function go() { setBusy(true); try { await refreshAll(); setAt(new Date().toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' })); } finally { setBusy(false); } }
   return <button type="button" className={`btn btn-secondary refresh-btn${busy ? ' is-busy' : ''}`} onClick={() => void go()} disabled={busy} title={at ? `Actualisé à ${at}` : 'Actualiser les données'}><Icon name="refresh" size={16} />{busy ? 'Actualisation…' : 'Actualiser'}</button>;
 }
+
+/** Horloge HH:MM avec les secondes plus discretes : la seconde qui avance montre que le systeme est vivant.
+    Pas d'annonce aux lecteurs d'ecran a chaque seconde (aria-hidden sur les secondes). */
+export function Clock({ now, className }: { now: Date; className?: string }) {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return <time className={`clock-face ${className ?? ''}`} dateTime={now.toISOString()} aria-label={`Il est ${p(now.getHours())} heures ${p(now.getMinutes())}`}>
+    {p(now.getHours())}:{p(now.getMinutes())}<span className="clock-sec" aria-hidden="true">:{p(now.getSeconds())}</span>
+  </time>;
+}
+/** Date courante, mise a jour a chaque seconde pile. */
+export function useSecondClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    let timer = 0;
+    const tick = () => { setNow(new Date()); timer = window.setTimeout(tick, 1000 - (Date.now() % 1000)); };
+    timer = window.setTimeout(tick, 1000 - (Date.now() % 1000));
+    return () => window.clearTimeout(timer);
+  }, []);
+  return now;
+}
