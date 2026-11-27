@@ -129,6 +129,7 @@ tbody tr:hover { background: var(--surface-2); }
 .dayline-span { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--accent); }
 .dayline-span.is-late { background: var(--warn); }
 .dayline-span.is-open { background: repeating-linear-gradient(90deg, var(--accent) 0 6px, transparent 6px 9px); }
+.dayline-extra { position: absolute; top: 0; bottom: 0; border-radius: 4px; background: var(--accent-2); }
 .dayline-now { position: absolute; top: -3px; bottom: -3px; width: 2px; border-radius: 1px; background: var(--now); }
 
 /* ---------- Connexion ---------- */

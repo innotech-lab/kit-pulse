@@ -92,13 +92,15 @@ const DAY_START = 7 * 60, DAY_END = 18 * 60;
 const pct = (min: number) => `${Math.min(100, Math.max(0, ((min - DAY_START) / (DAY_END - DAY_START)) * 100))}%`;
 export const minutesOf = (iso: string) => { const d = new Date(iso); return d.getHours() * 60 + d.getMinutes(); };
 /** Mini-frise 07:00-18:00 : plage de travail, presence pointee, repere "maintenant". */
-export function DayLine({ firstIn, lastOut, late, now, work = [8 * 60, 17 * 60], label }: { firstIn: string | null; lastOut: string | null; late?: boolean; now?: boolean; work?: [number, number]; label?: string }) {
+export function DayLine({ firstIn, lastOut, late, now, early = 0, after = 0, work = [8 * 60, 17 * 60], label }: { firstIn: string | null; lastOut: string | null; late?: boolean; now?: boolean; early?: number; after?: number; work?: [number, number]; label?: string }) {
   const start = firstIn ? minutesOf(firstIn) : null;
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
   const end = lastOut ? minutesOf(lastOut) : start !== null && now ? nowMin : null;
   return <div className="dayline" role="img" aria-label={label ?? (start === null ? 'Aucun pointage' : `Pointage de ${firstIn ? new Date(firstIn).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' }) : ''}${lastOut ? ` a ${new Date(lastOut).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' })}` : ''}`)}>
     <span className="dayline-work" style={{ left: pct(work[0]), right: `calc(100% - ${pct(work[1])})` }} />
     {start !== null && end !== null && <span className={`dayline-span${late ? ' is-late' : ''}${!lastOut ? ' is-open' : ''}`} style={{ left: pct(start), width: `calc(${pct(end)} - ${pct(start)})`, minWidth: 4 }} />}
+    {start !== null && end !== null && early > 0 && start < work[0] && <span className="dayline-extra" style={{ left: pct(start), width: `calc(${pct(Math.min(end, work[0]))} - ${pct(start)})` }} />}
+    {start !== null && end !== null && after > 0 && end > work[1] && <span className="dayline-extra" style={{ left: pct(Math.max(start, work[1])), width: `calc(${pct(end)} - ${pct(Math.max(start, work[1]))})` }} />}
     {now && nowMin >= DAY_START && nowMin <= DAY_END && <span className="dayline-now" style={{ left: pct(nowMin) }} />}
   </div>;
 }

@@ -79,7 +79,7 @@ function AttendancePage() {
             <thead><tr><th>Jour</th><th style={{ width: "36%" }}>Journée</th><th>Horaires</th><th>Statut</th><th /></tr></thead>
             <tbody>{recent.map((d) => <tr key={`${d.userId}-${d.workDate}`}>
               <td style={{ whiteSpace: "nowrap" }}>{dayLabel(d.workDate)}</td>
-              <td><DayLine firstIn={d.firstIn} lastOut={d.lastOut} late={d.status === "LATE"} now={d.status === "PENDING"} /></td>
+              <td><DayLine early={d.minutesEarly} after={d.minutesAfter} firstIn={d.firstIn} lastOut={d.lastOut} late={d.status === "LATE"} now={d.status === "PENDING"} /></td>
               <td className="mono" style={{ whiteSpace: "nowrap" }}>{d.firstIn ? hhmm(d.firstIn) : "--:--"} – {d.lastOut ? hhmm(d.lastOut) : d.missingOut ? "sortie oubliée" : "--:--"}</td>
               <td><Tag tone={tone(d)}>{attendanceStatusLabel(d)}{d.status === "LATE" ? ` · ${d.minutesLate} min` : ""}</Tag>{d.justificationStatus && !d.justified && <small style={{ display: "block", marginTop: 4 }}>{justificationStatus[d.justificationStatus]}</small>}</td>
               <td className="num-col">{(d.status === "LATE" || d.status === "ABSENT") && !d.justificationStatus && <Button size="sm" variant="secondary" onClick={() => prefill(d)}>Justifier</Button>}</td>

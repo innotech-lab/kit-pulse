@@ -71,7 +71,7 @@ function PersonPanel({ person, days, onClose }: { person: PersonReport; days: At
     {mine.length === 0 ? <Empty title="Pas de journée détaillée disponible" /> :
       <div className="week">{mine.map((d) => <div key={d.workDate} className="week-row">
         <span className="week-day">{short(d.workDate)}</span>
-        <DayLine firstIn={d.firstIn} lastOut={d.lastOut} late={d.status === 'LATE'} now={d.status === 'PENDING'} />
+        <DayLine early={d.minutesEarly} after={d.minutesAfter} firstIn={d.firstIn} lastOut={d.lastOut} late={d.status === 'LATE'} now={d.status === 'PENDING'} />
         <span className="week-times mono">{d.firstIn ? hhmm(d.firstIn) : '--:--'} – {d.lastOut ? hhmm(d.lastOut) : d.missingOut ? 'oubli' : '--:--'}</span>
         <Tag tone={d.status === 'PRESENT' ? 'ok' : d.status === 'LATE' ? 'warn' : d.status === 'ABSENT' ? (d.justified ? 'neutral' : 'danger') : 'neutral'}>
           {d.status === 'PRESENT' ? 'À l’heure' : d.status === 'LATE' ? `Retard ${d.minutesLate} min${d.justified ? ' · justifié' : ''}` : d.status === 'ABSENT' ? (d.justified ? 'Absence justifiée' : 'Absent') : 'À venir'}

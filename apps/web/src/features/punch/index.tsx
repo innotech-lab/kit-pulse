@@ -109,7 +109,7 @@ function PunchPage() {
           {!week ? <Loading /> : week.length === 0 ? <Empty title="Aucune journée cette semaine" /> :
             <div className="week">{week.map((d) => <div key={d.workDate} className="week-row">
               <span className="week-day">{dayName(d.workDate)}</span>
-              <DayLine firstIn={d.firstIn} lastOut={d.lastOut} late={d.status === 'LATE'} now={d.status === 'PENDING'} />
+              <DayLine early={d.minutesEarly} after={d.minutesAfter} firstIn={d.firstIn} lastOut={d.lastOut} late={d.status === 'LATE'} now={d.status === 'PENDING'} />
               <span className="week-times mono">{d.firstIn ? hhmm(d.firstIn) : '--:--'} – {d.lastOut ? hhmm(d.lastOut) : d.missingOut ? 'oubli' : '--:--'}</span>
               <Tag tone={DAY_TAG[d.status].tone}>{DAY_TAG[d.status].label}{d.status === 'LATE' ? ` ${d.minutesLate} min` : ''}</Tag>
             </div>)}</div>}
