@@ -27,6 +27,9 @@ const PATHS = {
   chevronRight: 'M9 18l6-6-6-6',
   monitor: 'M2 3h20v14H2zM8 21h8M12 17v4',
   user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
+  key: 'M15.5 7.5l2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4M21 2l-9.6 9.6M10 15.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0',
+  userX: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M17 8l5 5M22 8l-5 5',
+  userCheck: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M16 11l2 2 4-4',
 } as const;
 export type IconName = keyof typeof PATHS;
 export function Icon({ name, size = 18, label }: { name: IconName; size?: number; label?: string }) {
