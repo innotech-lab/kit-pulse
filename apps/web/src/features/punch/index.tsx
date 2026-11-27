@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Attestation, AttendanceDay, Punch, PunchType } from '@kit-pulse/contracts';
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
-import { Button, Card, DayLine, DayScale, Empty, Loading, Notice, Page, Tag, minutesOf } from '../../ui/components.tsx';
+import { Button, Card, DayLine, DayScale, Empty, Loading, Notice, Page, Tag, minutesOf, useAutoRefresh } from '../../ui/components.tsx';
 
 type Step = 'agent' | 'device' | 'network' | 'saved';
 const STEPS: { key: Step; label: string }[] = [
@@ -59,6 +59,7 @@ function PunchPage() {
     api<AttendanceDay[]>('GET', `/attendance/me?from=${from}&to=${to}`).then(setWeek).catch(() => setWeek([]));
   }, []);
   useEffect(load, [load]);
+  useAutoRefresh(load);
 
   async function go(type: PunchType) {
     setBusy(true); setError(''); setDone(null);

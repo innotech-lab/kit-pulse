@@ -4,7 +4,7 @@ import type { AttendanceDay, PersonReport } from '@kit-pulse/contracts';
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
-import { Avatar, Button, Card, IconButton, Modal, DayLine, Empty, Loading, Notice, Page, Stat, Tag } from '../../ui/components.tsx';
+import { Avatar, Button, Card, IconButton, Modal, DayLine, Empty, Loading, Notice, Page, Stat, Tag, useAutoRefresh } from '../../ui/components.tsx';
 
 type Period = 'day' | 'week' | 'month' | 'recap';
 interface PresentNow { userId: number; fullName: string; present: boolean; firstIn: string | null; lastPunchAt: string | null }
@@ -152,11 +152,16 @@ function DashboardPage() {
   const [selected, setSelected] = useState<number | null>(null);
   const [recapMonths, setRecapMonths] = useState(6);
   const canSeeDays = user?.role === 'ADMIN' || user?.role === 'HR';
+  const [tick, setTick] = useState(0);
+  const shownKey = useRef('');
+  useAutoRefresh(() => setTick((t) => t + 1), undefined, false);
 
   useEffect(() => {
     let live = true;
     const { from, to } = range(period, day);
-    setReports(null); setDays(null); setError('');
+    const key = `${period}|${day}|${canSeeDays}`;
+    if (shownKey.current !== key) { shownKey.current = key; setReports(null); setDays(null); }
+    setError('');
     const refresh = () => {
       api<PersonReport[]>('GET', `/reports/team?from=${from}&to=${to}`).then((r) => { if (live) { setReports(r); setUpdated(new Date()); } }).catch((e: Error) => { if (live) setError(e.message); });
       if (canSeeDays) api<AttendanceDay[]>('GET', `/attendance?from=${from}&to=${to}`).then((d) => { if (live) setDays(d); }).catch((e: Error) => { if (live) setError(e.message); });
@@ -165,7 +170,7 @@ function DashboardPage() {
     refresh();
     const timer = window.setInterval(() => { if (period === 'day' && day === iso(new Date())) refresh(); }, 60_000);
     return () => { live = false; window.clearInterval(timer); };
-  }, [period, day, canSeeDays]);
+  }, [period, day, canSeeDays, tick]);
   useEffect(() => {
     let live = true;
     const refresh = () => {
@@ -177,7 +182,7 @@ function DashboardPage() {
     const timer = window.setInterval(refresh, 60_000);
     if (canSeeDays) api<{ status: string }[]>('GET', '/justifications').then((j) => setPending(j.filter((x) => x.status === 'PENDING').length)).catch((e: unknown) => { if (!(e instanceof ApiError)) setPending(null); });
     return () => { live = false; window.clearInterval(timer); };
-  }, [canSeeDays]);
+  }, [canSeeDays, tick]);
 
   const team = reports?.filter((r) => r.expectedDays > 0) ?? [];
   const totals = team.reduce((t, r) => ({ exp: t.exp + r.expectedDays, pres: t.pres + r.presentDays, lateU: t.lateU + r.lateUnjustified, late: t.late + r.lateJustified + r.lateUnjustified, absU: t.absU + r.absentUnjustified }), { exp: 0, pres: 0, lateU: 0, late: 0, absU: 0 });

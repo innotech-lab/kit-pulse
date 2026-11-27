@@ -3,7 +3,7 @@ import type { Availability, Task, TaskPriority, TaskStatus } from '@kit-pulse/co
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
-import { Button, Card, Empty, Field, Loading, Modal, Notice, Page, SelectField, Tag, TextArea, availabilityLabel } from '../../ui/components.tsx';
+import { Button, Card, Empty, Field, Loading, Modal, Notice, Page, SelectField, Tag, TextArea, availabilityLabel, useAutoRefresh } from '../../ui/components.tsx';
 import { canAssignTasks, canSubmitAssignment, isVisibleTask, statusForProgress } from './model.ts';
 import { apiErrorMessage, isDevelopmentNotImplemented } from '../team/feedback.ts';
 
@@ -47,6 +47,12 @@ function TasksPage() {
     api<Availability[]>('GET', '/availability', { mock: MOCK_USERS }).then((data) => { if (active) { setPeople(data); if (data === MOCK_USERS) { setPeopleDemo(true); setDemo(true); } } }).catch(() => { /* attribution indisponible ; la liste de mes tâches reste utilisable */ });
     return () => { active = false; };
   }, []);
+
+  useAutoRefresh(() => {
+    const y = new Date().getFullYear();
+    api<Task[]>('GET', `/tasks/me?from=${y}-01-01&to=${y}-12-31`).then(setTasks).catch(() => {});
+    api<Availability[]>('GET', '/availability', { mock: MOCK_USERS }).then((data) => { if (data !== MOCK_USERS) setPeople(data); }).catch(() => {});
+  });
 
   const listed = useMemo(() => tasks.filter((t) => isVisibleTask(t, today())), [tasks]);
 

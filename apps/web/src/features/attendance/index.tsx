@@ -3,7 +3,7 @@ import type { AttendanceDay, Justification, JustificationKind } from '@kit-pulse
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
-import { Button, Card, DayLine, Empty, Field, Loading, Modal, Notice, Page, SelectField, Stat, Tag, TextArea } from '../../ui/components.tsx';
+import { Button, Card, DayLine, Empty, Field, Loading, Modal, Notice, Page, SelectField, Stat, Tag, TextArea, useAutoRefresh } from '../../ui/components.tsx';
 import { attendanceStatusLabel } from './model.ts';
 import { apiErrorMessage, isDevelopmentNotImplemented } from '../team/feedback.ts';
 
@@ -41,6 +41,8 @@ function AttendancePage() {
     }).catch((e: unknown) => { if (active) setError(apiErrorMessage(e)); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
+
+  useAutoRefresh(() => Promise.all([api<AttendanceDay[]>('GET', `/attendance/me?from=${from}&to=${to}`), api<Justification[]>('GET', '/justifications/me')]).then(([d, j]) => { setDays(d); setJustifications(j); }).catch(() => {}));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError(''); setNotice('');

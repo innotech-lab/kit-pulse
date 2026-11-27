@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { Role, User } from '@kit-pulse/contracts';
 import { api } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
-import { Button, Card, Empty, Field, Loading, Modal, Notice, Page, SelectField, Tag, useConfirm } from '../../ui/components.tsx';
+import { Button, Card, Empty, Field, Loading, Modal, Notice, Page, SelectField, Tag, useConfirm, useAutoRefresh } from '../../ui/components.tsx';
 
 type Device = { id: number; label: string; fullName: string; keyId: string; kind: 'PERSONAL' | 'KIOSK'; status: 'PENDING' | 'APPROVED' | 'REVOKED' };
 type Network = { id: number; ssid: string; label: string; active: boolean; macs: { id: number; kind: string; mac: string; note: string | null }[] };
@@ -41,6 +41,7 @@ function AdminPage() {
   const [deviceKinds, setDeviceKinds] = useState<Record<number, 'PERSONAL' | 'KIOSK'>>({});
   async function load(which = tab, selectedYear = year) { setLoading(true); setError(''); try { if (which === 'accounts') setUsers(await api<User[]>('GET', '/users')); else if (which === 'devices') setDevices(await api<Device[]>('GET', '/devices')); else if (which === 'networks') setNetworks(await api<Network[]>('GET', '/networks')); else if (which === 'holidays') setHolidays(await api<Holiday[]>('GET', `/attendance/holidays?from=${selectedYear}-01-01&to=${selectedYear}-12-31`)); else { const days = await api<ScheduleDay[]>('GET', '/attendance/schedule'); setWeekdays(days.map((d) => d.weekday)); if (days[0]) { const first = days[0]; setStartTime(first.startTime); setEndTime(first.endTime); setGrace(first.graceMinutes); setVariedSchedule(days.some((d) => d.startTime !== first.startTime || d.endTime !== first.endTime || d.graceMinutes !== first.graceMinutes)); } else setVariedSchedule(false); } } catch (e) { setError(e instanceof Error ? e.message : 'Chargement impossible'); } finally { setLoading(false); } }
   useEffect(() => { void load(tab, year); }, [tab, year]);
+  useAutoRefresh(() => { if (tab === 'accounts') return api<User[]>('GET', '/users').then(setUsers).catch(() => {}); if (tab === 'devices') return api<Device[]>('GET', '/devices').then(setDevices).catch(() => {}); return undefined; });
   async function saveSchedule(e: FormEvent) {
     e.preventDefault(); setSaving(true); setError(''); setNotice('');
     try { if (variedSchedule && !(await confirm({ title: 'Uniformiser les horaires', message: 'Les horaires diffèrent selon les jours. Enregistrer appliquera les mêmes horaires aux jours sélectionnés.', confirmLabel: 'Continuer' }))) return; await api('PUT', '/attendance/schedule', { body: { days: weekdays.map((weekday) => ({ weekday, startTime, endTime, graceMinutes: grace })) } }); setVariedSchedule(false); setNotice('Horaires enregistrés'); }

@@ -27,6 +27,7 @@ const PATHS = {
   chevronRight: 'M9 18l6-6-6-6',
   monitor: 'M2 3h20v14H2zM8 21h8M12 17v4',
   user: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
+  refresh: 'M21 12a9 9 0 1 1-2.64-6.36L21 8M21 3v5h-5',
   key: 'M15.5 7.5l2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4M21 2l-9.6 9.6M10 15.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0',
   userX: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M17 8l5 5M22 8l-5 5',
   userCheck: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M16 11l2 2 4-4',
@@ -56,7 +57,7 @@ export function Card({ children, title, meta, className }: { children: ReactNode
 /** Page : en-tete (titre + contexte + actions) puis contenu. */
 export function Page({ title, meta, actions, children }: { title: string; meta?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return <div className="page">
-    <header className="page-head"><div><h1>{title}</h1>{meta && <p className="meta">{meta}</p>}</div>{actions && <div className="actions">{actions}</div>}</header>
+    <header className="page-head"><div><h1>{title}</h1>{meta && <p className="meta">{meta}</p>}</div><div className="actions"><RefreshButton />{actions}</div></header>
     {children}
   </div>;
 }
@@ -167,4 +168,42 @@ export function useConfirm() {
     {state?.message && <p className="muted">{state.message}</p>}
   </Modal>;
   return { confirm, dialog };
+}
+
+/* ---------- Actualisation automatique ----------
+   Rappelle `refresh` toutes les `ms` et au retour sur l'onglet, sans jamais deranger :
+   rien si l'onglet est cache, si une superposition est ouverte ou si l'on tape dans un champ. */
+export const AUTO_REFRESH_MS = 45_000;
+/** Tout ce que les pages ouvertes savent recharger : le bouton Actualiser les relance d'un coup. */
+const refreshers = new Set<{ current: () => unknown }>();
+export async function refreshAll() { await Promise.allSettled([...refreshers].map((r) => Promise.resolve(r.current()))); }
+/** auto = false : seulement via le bouton Actualiser (page qui gere deja son propre rythme). */
+export function useAutoRefresh(refresh: () => unknown, ms = AUTO_REFRESH_MS, auto = true) {
+  const ref = useRef(refresh);
+  ref.current = refresh;
+  useEffect(() => { refreshers.add(ref); return () => { refreshers.delete(ref); }; }, []);
+  useEffect(() => {
+    if (!auto) return;
+    const busy = () => {
+      if (document.visibilityState !== 'visible') return true;
+      if (document.querySelector('.modal')) return true;
+      const el = document.activeElement as HTMLElement | null;
+      return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
+    };
+    let last = Date.now();
+    const run = () => { if (busy()) return; last = Date.now(); void ref.current(); };
+    const timer = window.setInterval(run, ms);
+    const onShow = () => { if (document.visibilityState === 'visible' && Date.now() - last > 5_000) run(); };
+    document.addEventListener('visibilitychange', onShow);
+    window.addEventListener('focus', onShow);
+    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onShow); window.removeEventListener('focus', onShow); };
+  }, [ms, auto]);
+}
+
+/** Bouton Actualiser de l'en-tete : recharge immediatement les donnees de la page. */
+export function RefreshButton() {
+  const [busy, setBusy] = useState(false);
+  const [at, setAt] = useState<string | null>(null);
+  async function go() { setBusy(true); try { await refreshAll(); setAt(new Date().toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' })); } finally { setBusy(false); } }
+  return <button type="button" className={`btn btn-secondary refresh-btn${busy ? ' is-busy' : ''}`} onClick={() => void go()} disabled={busy} title={at ? `Actualisé à ${at}` : 'Actualiser les données'}><Icon name="refresh" size={16} />{busy ? 'Actualisation…' : 'Actualiser'}</button>;
 }

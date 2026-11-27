@@ -4,7 +4,7 @@ import type { AgendaEvent, DirectoryEntry, EventKind } from '@kit-pulse/contract
 import { api } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
-import { Button, Field, IconButton, Modal, Notice, Page, SelectField, useConfirm } from '../../ui/components.tsx';
+import { Button, Field, IconButton, Modal, Notice, Page, SelectField, useConfirm, useAutoRefresh } from '../../ui/components.tsx';
 
 const START = 7 * 60, END = 18 * 60, SPAN = END - START;
 const KINDS: Record<EventKind, string> = { MEETING: 'Réunion', FIELD: 'Terrain', FOCUS: 'Travail concentré', OTHER: 'Autre' };
@@ -51,6 +51,7 @@ function AgendaPage() {
       .then(setEvents).catch((e: Error) => { setEvents([]); setError(e.message); });
   }, [from, to, person]);
   useEffect(() => { setEvents(null); void load(); }, [load]);
+  useAutoRefresh(load);
   useEffect(() => { if (canSeeTeam) api<DirectoryEntry[]>('GET', '/users/directory').then(setDirectory).catch(() => {}); }, [canSeeTeam]);
   useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(''), 3000); return () => clearTimeout(t); }, [notice]);
 

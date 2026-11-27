@@ -3,7 +3,7 @@ import type { Availability, AvailabilityStatus } from '@kit-pulse/contracts';
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
-import { Avatar, Button, Card, Empty, Field, Loading, Notice, Page, SelectField, StatusIcon } from '../../ui/components.tsx';
+import { Avatar, Button, Card, Empty, Field, Loading, Notice, Page, SelectField, StatusIcon, useAutoRefresh } from '../../ui/components.tsx';
 import { AVAILABILITY_STATUSES, filterAvailability } from './model.ts';
 import { apiErrorMessage, isDevelopmentNotImplemented } from './feedback.ts';
 
@@ -35,6 +35,8 @@ function TeamPage() {
     }).catch((e: unknown) => { if (active) setError(apiErrorMessage(e)); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
+
+  useAutoRefresh(() => api<Availability[]>('GET', '/availability', { mock: MOCK }).then((data) => { if (data !== MOCK) setRows(data); }).catch(() => {}));
 
   const visible = useMemo(() => filterAvailability(rows, filter, statusFilter), [rows, filter, statusFilter]);
 

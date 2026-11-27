@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { Justification } from '@kit-pulse/contracts';
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
-import { Avatar, Button, Card, Empty, Loading, Notice, Page, Tag, useConfirm } from '../../ui/components.tsx';
+import { Avatar, Button, Card, Empty, Loading, Notice, Page, Tag, useConfirm, useAutoRefresh } from '../../ui/components.tsx';
 import { pendingReviews, requiresRefusalConfirmation, REVIEW_ROLES } from './model.ts';
 import { apiErrorMessage, isDevelopmentNotImplemented } from '../team/feedback.ts';
 
@@ -27,6 +27,8 @@ function ReviewsPage() {
       .catch((e: unknown) => { if (active) setError(apiErrorMessage(e)); }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
+
+  useAutoRefresh(() => api<Justification[]>('GET', '/justifications', { mock: MOCK }).then((data) => { if (data !== MOCK) setItems(data); }).catch(() => {}));
 
   async function review(item: Justification, status: 'ACCEPTED' | 'REJECTED') {
     if (requiresRefusalConfirmation(status) && !(await confirm({ title: 'Refuser cette justification ?', message: `${names[item.userId] ?? 'La personne'} verra la demande comme refusée et la journée restera non justifiée.`, confirmLabel: 'Refuser', danger: true }))) return;

@@ -395,3 +395,9 @@ tbody tr:hover { background: var(--surface-2); }
 .recap-cell { display: inline-block; min-width: 52px; padding: 2px 8px; border-radius: 6px; background: var(--n-100); font: 500 var(--t-sm)/1.5 var(--mono); color: var(--text-2); }
 .recap-cell.is-good { background: var(--accent-soft); color: var(--accent-ink); }
 .recap-cell.is-low { background: var(--danger-soft); color: var(--danger); }
+
+/* ---------- Bouton Actualiser ---------- */
+.refresh-btn svg { transition: transform var(--d-mid) var(--ease); }
+.refresh-btn.is-busy svg { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .refresh-btn.is-busy svg { animation: none; } }
