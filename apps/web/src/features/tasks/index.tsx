@@ -123,5 +123,5 @@ function TasksPage() {
       </Modal>
   </Page>;
 }
-const feature: Feature = { path: 'tasks', label: 'Mes tâches', order: 20, Component: TasksPage };
+const feature: Feature = { path: 'tasks', label: 'Mes tâches', order: 20, roles: ['HR', 'COORDINATOR', 'MEMBER'], Component: TasksPage };
 export default feature;

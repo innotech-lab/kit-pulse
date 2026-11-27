@@ -125,5 +125,5 @@ function PunchPage() {
     </Page>
   );
 }
-const feature: Feature = { path: 'pointage', label: 'Pointage', order: 10, Component: PunchPage };
+const feature: Feature = { path: 'pointage', label: 'Pointage', order: 10, roles: ['HR', 'COORDINATOR', 'MEMBER'], Component: PunchPage };
 export default feature;

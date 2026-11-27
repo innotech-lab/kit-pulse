@@ -140,5 +140,5 @@ function AgendaPage() {
     {dialog}
   </Page>;
 }
-const feature: Feature = { path: 'agenda', label: 'Agenda', order: 30, Component: AgendaPage };
+const feature: Feature = { path: 'agenda', label: 'Agenda', order: 30, roles: ['HR', 'COORDINATOR', 'MEMBER'], Component: AgendaPage };
 export default feature;

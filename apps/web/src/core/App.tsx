@@ -34,7 +34,7 @@ function Shell() {
   if (user.mustChangePassword) return <ChangePassword />;
   // Masquer un menu n'est PAS une securite : l'API verifie chaque role.
   const visible = FEATURES.filter((f) => !f.roles || f.roles.includes(user.role));
-  const current = visible.find((f) => f.path === path) ?? visible[0];
+  const current = visible.find((f) => f.path === path) ?? visible.find((f) => f.path === 'dashboard') ?? visible[0];
   if (!current) return <p className="center">Aucune page disponible.</p>;
   return <Layout user={user} items={visible} active={current.path} onLogout={logout}><current.Component /></Layout>;
 }

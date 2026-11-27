@@ -113,5 +113,5 @@ function AttendancePage() {
     </div>
   </Page>;
 }
-const feature: Feature = { path: 'attendance', label: 'Présences', order: 50, Component: AttendancePage };
+const feature: Feature = { path: 'attendance', label: 'Présences', order: 50, roles: ['HR', 'COORDINATOR', 'MEMBER'], Component: AttendancePage };
 export default feature;
