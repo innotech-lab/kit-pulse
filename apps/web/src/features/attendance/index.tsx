@@ -25,8 +25,8 @@ function AttendancePage() {
   const from = `${new Date().getFullYear()}-01-01`;
   const to = `${new Date().getFullYear()}-12-31`;
   const mockDays: AttendanceDay[] = [
-    { userId: user?.id ?? -1, workDate: '2026-11-24', status: 'LATE', minutesLate: 11, firstIn: '2026-11-24T08:11:00.000Z', lastOut: '2026-11-24T17:00:00.000Z', missingOut: false, justificationStatus: 'ACCEPTED', justified: true },
-    { userId: user?.id ?? -1, workDate: '2026-11-25', status: 'PENDING', minutesLate: 0, firstIn: null, lastOut: null, missingOut: false, justificationStatus: null, justified: false },
+    { userId: user?.id ?? -1, workDate: '2026-11-24', status: 'LATE', minutesLate: 11, firstIn: '2026-11-24T08:11:00.000Z', lastOut: '2026-11-24T17:00:00.000Z', missingOut: false, justificationStatus: 'ACCEPTED', justified: true, minutesEarly: 0, minutesAfter: 0 },
+    { userId: user?.id ?? -1, workDate: '2026-11-25', status: 'PENDING', minutesLate: 0, firstIn: null, lastOut: null, missingOut: false, justificationStatus: null, justified: false, minutesEarly: 0, minutesAfter: 0 },
   ];
   const mockJustifications: Justification[] = [{ id: -1, userId: user?.id ?? -1, workDate: '2026-11-24', kind: 'LATE', reason: 'Motif fictif de démonstration.', status: 'ACCEPTED', reviewNote: null }];
 

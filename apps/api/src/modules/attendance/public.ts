@@ -5,6 +5,8 @@ import { badRequest } from '../../core/errors.ts';
 import { localParts } from '../../core/time.ts';
 
 const MAX_DAYS = 400;
+/** En dessous, on ne compte pas d'heures sup (arrivee a 07:55, depart a 17:05). */
+export const OVERTIME_THRESHOLD = 15;
 type JustStatus = AttendanceDay['justificationStatus'];
 
 function addDays(date: string, n: number): string {
@@ -29,9 +31,9 @@ export function computeDays(ctx: Ctx, userId: number, from: string, to: string):
   const start = from < arrival ? arrival : from;
   if (start > to) return [];
 
-  const schedule = new Map<number, { start: string; grace: number }>();
-  for (const r of ctx.db.prepare('SELECT weekday, start_time, grace_minutes FROM work_schedule').all() as { weekday: number; start_time: string; grace_minutes: number }[]) {
-    schedule.set(r.weekday, { start: r.start_time, grace: r.grace_minutes });
+  const schedule = new Map<number, { start: string; end: string; grace: number }>();
+  for (const r of ctx.db.prepare('SELECT weekday, start_time, end_time, grace_minutes FROM work_schedule').all() as { weekday: number; start_time: string; end_time: string; grace_minutes: number }[]) {
+    schedule.set(r.weekday, { start: r.start_time, end: r.end_time, grace: r.grace_minutes });
   }
   const holidays = new Set((ctx.db.prepare('SELECT date FROM holidays WHERE date BETWEEN ? AND ?').all(start, to) as { date: string }[]).map((h) => h.date));
   const punches = ctx.db.prepare('SELECT type, at, work_date FROM punches WHERE user_id = ? AND work_date BETWEEN ? AND ? ORDER BY at').all(userId, start, to) as { type: 'IN' | 'OUT'; at: string; work_date: string }[];
@@ -63,7 +65,16 @@ export function computeDays(ctx: Ctx, userId: number, from: string, to: string):
     } else status = date < today ? 'ABSENT' : 'PENDING';
     const kind = status === 'LATE' ? 'LATE' : status === 'ABSENT' ? 'ABSENCE' : null;
     const justificationStatus = kind ? justs.get(`${date}|${kind}`) ?? null : null;
-    days.push({ userId, workDate: date, status, minutesLate, firstIn, lastOut, missingOut, justificationStatus, justified: justificationStatus === 'ACCEPTED' });
+    // Heures sup mesurees : avant le debut, apres la fin ; jour ferie ou non travaille pointe = toute la presence.
+    let minutesEarly = 0, minutesAfter = 0;
+    if (firstIn && lastOut) {
+      const inMin = minutes(localParts(new Date(firstIn), tz).time), outMin = minutes(localParts(new Date(lastOut), tz).time);
+      if (!sched || status === 'HOLIDAY') minutesAfter = Math.max(0, outMin - inMin);
+      else { minutesEarly = Math.max(0, minutes(sched.start) - inMin); minutesAfter = Math.max(0, outMin - minutes(sched.end)); }
+      if (minutesEarly < OVERTIME_THRESHOLD) minutesEarly = 0;
+      if (minutesAfter < OVERTIME_THRESHOLD) minutesAfter = 0;
+    }
+    days.push({ userId, workDate: date, status, minutesLate, firstIn, lastOut, missingOut, justificationStatus, justified: justificationStatus === 'ACCEPTED', minutesEarly, minutesAfter });
   }
   return days;
 }

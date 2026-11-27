@@ -39,3 +39,21 @@ test('ATT-004 : jours feries du Burundi charges, jamais une absence, ajout reser
     assert.equal(day.status, 'HOLIDAY');
   } finally { await api.close(); }
 });
+
+test('Heures sup : avant 08:00, apres 17:00, les deux, seuil de 15 minutes, total dans le bilan', async () => {
+  const api = await startTestApi();
+  try {
+    const p = api.ctx.db.prepare("INSERT INTO punches (user_id, type, at, work_date, simulated, source, created_by) VALUES (?,?,?,?,1,'AGENT',?)");
+    const day = (u: number, d: string, inn: string, out: string) => { p.run(u, 'IN', `${d}T${inn}:00.000Z`, d, u); p.run(u, 'OUT', `${d}T${out}:00.000Z`, d, u); };
+    // UTC+2 : 05:00Z = 07:00 local, 17:30Z = 19:30 local
+    day(4, '2026-11-16', '05:00', '15:00'); // arrive 07:00 -> 60 min avant
+    day(4, '2026-11-17', '06:00', '17:30'); // part 19:30 -> 150 min apres
+    day(4, '2026-11-18', '05:30', '16:00'); // les deux : 30 + 60
+    day(4, '2026-11-19', '05:55', '15:10'); // 07:55 / 17:10 : sous le seuil
+    const rh = await api.login('rh');
+    const days = (await api.call('GET', '/attendance?from=2026-11-16&to=2026-11-19&userId=4', { cookie: rh })).json;
+    assert.deepEqual(days.map((d: { minutesEarly: number; minutesAfter: number }) => [d.minutesEarly, d.minutesAfter]), [[60, 0], [0, 150], [30, 60], [0, 0]]);
+    const rep = (await api.call('GET', '/reports/users/4?from=2026-11-16&to=2026-11-19', { cookie: rh })).json;
+    assert.deepEqual([rep.overtimeMinutes, rep.overtimeDays], [300, 3]);
+  } finally { await api.close(); }
+});

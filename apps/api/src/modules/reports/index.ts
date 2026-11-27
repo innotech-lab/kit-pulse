@@ -20,6 +20,8 @@ export function personReport(ctx: Ctx, userId: number, fullName: string, from: s
     tasksPlanned: tasks.length,
     tasksDone: tasks.filter((t) => t.status === 'DONE').length,
     averageProgress: tasks.length ? Math.round(tasks.reduce((s, t) => s + t.progress, 0) / tasks.length) : 0,
+    overtimeMinutes: days.reduce((s, d) => s + d.minutesEarly + d.minutesAfter, 0),
+    overtimeDays: count((d) => d.minutesEarly + d.minutesAfter > 0),
   };
 }
 

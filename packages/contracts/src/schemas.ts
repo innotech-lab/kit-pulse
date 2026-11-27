@@ -48,6 +48,8 @@ export const AttendanceDay = z.object({
   userId: Id, workDate: WorkDate, status: DayStatus, minutesLate: z.number().int().min(0),
   firstIn: IsoDate.nullable(), lastOut: IsoDate.nullable(), missingOut: z.boolean(),
   justificationStatus: JustificationStatus.nullable(), justified: z.boolean(),
+  /** Heures sup mesurees (non validees) : minutes avant le debut et apres la fin de l'horaire, seuil de 15 min. */
+  minutesEarly: z.number().int().min(0).default(0), minutesAfter: z.number().int().min(0).default(0),
 });
 export type AttendanceDay = z.infer<typeof AttendanceDay>;
 export const ScheduleDay = z.object({ weekday: z.number().int().min(1).max(7), startTime: z.string().regex(/^\d{2}:\d{2}$/), endTime: z.string().regex(/^\d{2}:\d{2}$/), graceMinutes: z.number().int().min(0).max(120) });
@@ -81,6 +83,7 @@ export const PersonReport = z.object({
   userId: Id, fullName: z.string(), expectedDays: z.number().int(), presentDays: z.number().int(),
   lateJustified: z.number().int(), lateUnjustified: z.number().int(), absentJustified: z.number().int(), absentUnjustified: z.number().int(),
   tasksPlanned: z.number().int(), tasksDone: z.number().int(), averageProgress: z.number(),
+  overtimeMinutes: z.number().int().default(0), overtimeDays: z.number().int().default(0),
 });
 export type PersonReport = z.infer<typeof PersonReport>;
 
