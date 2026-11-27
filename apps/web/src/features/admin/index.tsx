@@ -10,6 +10,13 @@ type Holiday = { date: string; label: string };
 const roles: Record<Role, string> = { ADMIN: 'Administration', HR: 'Ressources humaines', COORDINATOR: 'Coordination', MEMBER: 'Équipe' };
 const initial = { badgeId: '', fullName: '', email: '', role: 'MEMBER' as Role, jobTitle: '', password: '' };
 const suggestLocal = (name: string) => name.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/\s+/).map((part) => part.replace(/[^a-z0-9-]/g, '')).filter(Boolean).join('.');
+function temporaryPassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const limit = 256 - 256 % alphabet.length;
+  let result = '';
+  while (result.length < 12) { const bytes = crypto.getRandomValues(new Uint8Array(16)); for (const byte of bytes) { if (byte < limit) result += alphabet[byte % alphabet.length]; if (result.length === 12) break; } }
+  return result;
+}
 function AdminPage() {
   const { confirm, dialog } = useConfirm();
   const [tab, setTab] = useState<'accounts' | 'devices' | 'networks' | 'holidays'>('accounts');
@@ -20,6 +27,8 @@ function AdminPage() {
   const [domain, setDomain] = useState('');
   const [domainDraft, setDomainDraft] = useState('');
   const [showDomain, setShowDomain] = useState(false);
+  const [temporary, setTemporary] = useState('');
+  const [copied, setCopied] = useState(false);
   const [externalEmail, setExternalEmail] = useState(false);
   const [emailEdited, setEmailEdited] = useState(false);
   const [users, setUsers] = useState<User[]>([]); const [devices, setDevices] = useState<Device[]>([]); const [networks, setNetworks] = useState<Network[]>([]);
@@ -33,6 +42,12 @@ function AdminPage() {
     e.preventDefault(); setSaving(true); setError(''); setNotice('');
     try { const result = await api<{ domain: string }>('PUT', '/users/email-domain', { body: { domain: domainDraft } }); setDomain(result.domain); setShowDomain(false); setNotice('Domaine enregistré'); }
     catch (e) { setError(e instanceof Error ? e.message : 'Enregistrement impossible'); } finally { setSaving(false); }
+  }
+  async function resetPassword(u: User) {
+    if (!(await confirm({ title: 'Créer un mot de passe temporaire', message: `Les sessions de ${u.fullName} seront fermées.`, confirmLabel: 'Créer', danger: true }))) return;
+    setSaving(true); setError('');
+    try { const password = temporaryPassword(); await api('POST', `/users/${u.id}/reset-password`, { body: { password } }); setCopied(false); setTemporary(password); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Réinitialisation impossible'); } finally { setSaving(false); }
   }
   async function saveHoliday(e: FormEvent) {
     e.preventDefault(); setSaving(true); setError(''); setNotice('');
@@ -57,6 +72,10 @@ function AdminPage() {
       {error && <Notice tone="danger">{error}</Notice>}
       <form className="grid" onSubmit={(e) => void saveDomain(e)}><Field label="Domaine" required value={domainDraft} onChange={(e) => setDomainDraft(e.target.value)} /><div className="feature-actions"><Button type="submit" disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Button></div></form>
     </Modal>
+    <Modal open={!!temporary} title="Mot de passe temporaire" dismissible={false} onClose={() => setTemporary('')}>
+      <p className="mono">{temporary}</p><p>À transmettre à la personne. Elle devra le changer à sa prochaine connexion.</p>
+      <Button variant="secondary" onClick={() => { void navigator.clipboard.writeText(temporary).then(() => setCopied(true)).catch(() => setError('Copie impossible')); }}>{copied ? 'Copié' : 'Copier'}</Button>{error && <Notice tone="danger">{error}</Notice>}
+    </Modal>
     <Modal open={tab === 'holidays' && showHoliday} title="Ajouter un jour férié" dismissible={false} onClose={() => setShowHoliday(false)}>
       {error && <Notice tone="danger">{error}</Notice>}
       <form onSubmit={(e) => void saveHoliday(e)} className="grid">
@@ -70,7 +89,7 @@ function AdminPage() {
       {loading ? <Loading /> : holidays.length === 0 ? <Empty title="Aucun jour férié pour cette année" /> : <div className="table-scroll"><ul className="holiday-grid">{holidays.map((h) => { const d = new Date(`${h.date}T12:00:00`); const est = h.label.toLocaleLowerCase('fr').includes('estimée'); return <li key={h.date}><span className="holiday-date"><strong>{d.getDate()}</strong><span>{d.toLocaleDateString('fr-FR', { month: 'short' }).replace('.', '')}</span></span><span className="holiday-text"><span>{h.label.replace(' (date estimée)', '').replace(', date estimée)', ')')}</span><small>{d.toLocaleDateString('fr-FR', { weekday: 'long' })}{d.getDay() === 0 || d.getDay() === 6 ? ' · week-end' : ''}</small></span>{est && <Tag tone="warn">Estimée</Tag>}</li>; })}</ul></div>}
     </Card> : <>
     <Card title={tab === 'accounts' ? 'Comptes' : tab === 'devices' ? 'Postes enregistrés' : 'Réseaux autorisés'} meta={tab === 'accounts' ? `${users.length} comptes` : tab === 'devices' ? `${devices.length} postes` : `${networks.length} réseaux`}>
-      {loading ? <Loading /> : tab === 'accounts' ? users.length === 0 ? <Empty title="Aucun compte" /> : <div className="table-scroll"><table><thead><tr><th>Personne</th><th>ID KIT-HUB</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody>{users.map((u) => <tr key={u.id}><td><strong>{u.fullName}</strong><div className="muted">{u.email}</div></td><td className="mono">{u.badgeId}</td><td><Tag tone={u.role === 'ADMIN' ? 'accent' : 'neutral'}>{roles[u.role]}</Tag></td><td><Tag tone={u.isActive ? 'ok' : 'neutral'}>{u.isActive ? 'Actif' : 'Inactif'}</Tag></td><td><div className="feature-actions"><Button variant="secondary" size="sm" onClick={() => edit(u)}>Modifier</Button><Button variant={u.isActive ? 'ghost' : 'secondary'} size="sm" disabled={saving} onClick={() => void toggle(u)}>{u.isActive ? 'Désactiver' : 'Réactiver'}</Button></div></td></tr>)}</tbody></table></div> : tab === 'devices' ? devices.length === 0 ? <Empty title="Aucun poste enregistré" /> : <div className="table-scroll"><table><thead><tr><th>Poste</th><th>Personne</th><th>Statut</th><th>Type et actions</th></tr></thead><tbody>{devices.map((d) => <tr key={d.id}><td><strong>{d.label}</strong><div className="mono muted">{d.keyId}</div></td><td>{d.fullName}</td><td><Tag tone={d.status === 'APPROVED' ? 'ok' : d.status === 'PENDING' ? 'warn' : 'danger'}>{d.status === 'APPROVED' ? 'Approuvé' : d.status === 'PENDING' ? 'En attente' : 'Révoqué'}</Tag></td><td><div className="feature-actions"><SelectField label={`Type pour ${d.label}`} value={deviceKinds[d.id] ?? d.kind} onChange={(e) => setDeviceKinds({ ...deviceKinds, [d.id]: e.target.value as 'PERSONAL' | 'KIOSK' })}><option value="PERSONAL">Personnel</option><option value="KIOSK">Borne</option></SelectField><Button variant="secondary" size="sm" disabled={saving} onClick={() => void deviceAction(d, 'approve')}>Approuver</Button>{d.status !== 'REVOKED' && <Button variant="danger" size="sm" disabled={saving} onClick={() => void deviceAction(d, 'revoke')}>Révoquer</Button>}</div></td></tr>)}</tbody></table></div> : networks.length === 0 ? <Empty title="Aucun réseau configuré" /> : <ul className="feature-list">{networks.map((n) => <li key={n.id}><div className="feature-actions"><strong>{n.label}</strong><Tag tone={n.active ? 'ok' : 'neutral'}>{n.active ? 'Actif' : 'Inactif'}</Tag></div><p>SSID : <span className="mono">{n.ssid}</span></p>{n.macs.length ? n.macs.map((m) => <p key={m.id}>{m.kind === 'GATEWAY' ? 'Routeur' : 'Point d’accès'} · <span className="mono">{m.mac}</span>{m.note && ` · ${m.note}`}</p>) : <p className="muted">Aucune adresse MAC configurée</p>}</li>)}</ul>}
+      {loading ? <Loading /> : tab === 'accounts' ? users.length === 0 ? <Empty title="Aucun compte" /> : <div className="table-scroll"><table><thead><tr><th>Personne</th><th>ID KIT-HUB</th><th>Rôle</th><th>Statut</th><th>Actions</th></tr></thead><tbody>{users.map((u) => <tr key={u.id}><td><strong>{u.fullName}</strong><div className="muted">{u.email}</div></td><td className="mono">{u.badgeId}</td><td><Tag tone={u.role === 'ADMIN' ? 'accent' : 'neutral'}>{roles[u.role]}</Tag></td><td><Tag tone={u.isActive ? 'ok' : 'neutral'}>{u.isActive ? 'Actif' : 'Inactif'}</Tag></td><td><div className="feature-actions"><Button variant="secondary" size="sm" onClick={() => edit(u)}>Modifier</Button><Button variant="ghost" size="sm" disabled={saving} onClick={() => void resetPassword(u)}>Mot de passe temporaire</Button><Button variant={u.isActive ? 'ghost' : 'secondary'} size="sm" disabled={saving} onClick={() => void toggle(u)}>{u.isActive ? 'Désactiver' : 'Réactiver'}</Button></div></td></tr>)}</tbody></table></div> : tab === 'devices' ? devices.length === 0 ? <Empty title="Aucun poste enregistré" /> : <div className="table-scroll"><table><thead><tr><th>Poste</th><th>Personne</th><th>Statut</th><th>Type et actions</th></tr></thead><tbody>{devices.map((d) => <tr key={d.id}><td><strong>{d.label}</strong><div className="mono muted">{d.keyId}</div></td><td>{d.fullName}</td><td><Tag tone={d.status === 'APPROVED' ? 'ok' : d.status === 'PENDING' ? 'warn' : 'danger'}>{d.status === 'APPROVED' ? 'Approuvé' : d.status === 'PENDING' ? 'En attente' : 'Révoqué'}</Tag></td><td><div className="feature-actions"><SelectField label={`Type pour ${d.label}`} value={deviceKinds[d.id] ?? d.kind} onChange={(e) => setDeviceKinds({ ...deviceKinds, [d.id]: e.target.value as 'PERSONAL' | 'KIOSK' })}><option value="PERSONAL">Personnel</option><option value="KIOSK">Borne</option></SelectField><Button variant="secondary" size="sm" disabled={saving} onClick={() => void deviceAction(d, 'approve')}>Approuver</Button>{d.status !== 'REVOKED' && <Button variant="danger" size="sm" disabled={saving} onClick={() => void deviceAction(d, 'revoke')}>Révoquer</Button>}</div></td></tr>)}</tbody></table></div> : networks.length === 0 ? <Empty title="Aucun réseau configuré" /> : <ul className="feature-list">{networks.map((n) => <li key={n.id}><div className="feature-actions"><strong>{n.label}</strong><Tag tone={n.active ? 'ok' : 'neutral'}>{n.active ? 'Actif' : 'Inactif'}</Tag></div><p>SSID : <span className="mono">{n.ssid}</span></p>{n.macs.length ? n.macs.map((m) => <p key={m.id}>{m.kind === 'GATEWAY' ? 'Routeur' : 'Point d’accès'} · <span className="mono">{m.mac}</span>{m.note && ` · ${m.note}`}</p>) : <p className="muted">Aucune adresse MAC configurée</p>}</li>)}</ul>}
     </Card>
     </>}
     {dialog}

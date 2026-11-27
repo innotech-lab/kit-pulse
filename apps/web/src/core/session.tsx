@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { User } from '@kit-pulse/contracts';
 import { api } from './api.ts';
-interface Session { user: User | null; ready: boolean; login: (email: string, password: string) => Promise<void>; logout: () => Promise<void> }
+interface Session { user: User | null; ready: boolean; login: (email: string, password: string) => Promise<void>; logout: () => Promise<void>; setUser: (user: User) => void }
 const Ctx = createContext<Session | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -10,7 +10,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => { api<User>('GET', '/auth/me').then(setUser).catch(() => setUser(null)).finally(() => setReady(true)); }, []);
   const login = async (email: string, password: string) => setUser(await api<User>('POST', '/auth/login', { body: { email, password } }));
   const logout = async () => { await api('POST', '/auth/logout'); setUser(null); };
-  return <Ctx value={{ user, ready, login, logout }}>{children}</Ctx>;
+  return <Ctx value={{ user, ready, login, logout, setUser }}>{children}</Ctx>;
 }
 export function useSession(): Session {
   const s = useContext(Ctx);

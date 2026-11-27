@@ -1,10 +1,10 @@
 // Daniel. MODULE DE REFERENCE : a lire avant d'ecrire le sien.
-import { LoginInput } from '@kit-pulse/contracts';
+import { ChangePasswordInput, LoginInput } from '@kit-pulse/contracts';
 import { hashPassword, verifyPassword } from '../../../../../db/lib.ts';
 import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
 import { HttpError } from '../../core/errors.ts';
-import { createModule, parse, todo } from '../../core/module.ts';
+import { createModule, parse } from '../../core/module.ts';
 import { closeSession, openSession, toUser } from '../../core/session.ts';
 
 const MAX_FAILS = 8, WINDOW_MS = 15 * 60_000;
@@ -32,6 +32,14 @@ export default function authModule(ctx: Ctx) {
   });
   route('post', '/logout', ({ req, res }) => { closeSession(ctx, req, res); });
   route('get', '/me', ({ user }) => user);
-  route('post', '/change-password', todo('AUTH-002'));
+  route('post', '/change-password', ({ user, body }) => {
+    const input = parse(ChangePasswordInput, body);
+    const row = ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(user.id)!;
+    if (!verifyPassword(input.current, row.password_hash as string)) throw new HttpError(401, 'BAD_CREDENTIALS', 'Mot de passe actuel incorrect.');
+    if (input.current === input.next) throw new HttpError(400, 'PASSWORD_UNCHANGED', 'Choisissez un mot de passe différent.');
+    ctx.db.prepare('UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?').run(hashPassword(input.next), ctx.now().toISOString(), user.id);
+    audit(ctx, user.id, 'PASSWORD_CHANGE', 'user', user.id);
+    return toUser(ctx.db.prepare('SELECT * FROM users WHERE id = ?').get(user.id)!);
+  });
   return router;
 }

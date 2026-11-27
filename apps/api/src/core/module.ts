@@ -18,6 +18,7 @@ export function createModule(ctx: Ctx, name: string) {
       const user = currentUser(ctx, req);
       if (def.roles !== 'PUBLIC') {
         if (!user) throw new HttpError(401, 'UNAUTHENTICATED', 'Connexion requise.');
+        if (user.mustChangePassword && name !== 'auth') throw new HttpError(403, 'MUST_CHANGE_PASSWORD', 'Choisissez un nouveau mot de passe.');
         if (def.roles !== 'ALL' && !def.roles.includes(user.role)) throw forbidden();
       }
       const out = await handler({ user: user as User, body: req.body, params: req.params as Record<string, string>, query: req.query, req, res });
