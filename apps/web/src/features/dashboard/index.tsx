@@ -6,16 +6,20 @@ import type { Feature } from '../../core/feature.ts';
 import { useSession } from '../../core/session.tsx';
 import { Avatar, Button, Card, IconButton, Modal, DayLine, Empty, Loading, Notice, Page, Stat, Tag } from '../../ui/components.tsx';
 
-type Period = 'day' | 'week' | 'month';
+type Period = 'day' | 'week' | 'month' | 'recap';
 interface PresentNow { userId: number; fullName: string; present: boolean; firstIn: string | null; lastPunchAt: string | null }
 
 const iso = (d: Date) => d.toLocaleDateString('en-CA');
-function range(p: Period, day: string) {
-  const t = new Date();
-  if (p === 'day') return { from: day, to: day };
-  if (p === 'week') { const wd = t.getDay() || 7; const mon = new Date(t); mon.setDate(t.getDate() - wd + 1); return { from: iso(mon), to: iso(t) }; }
-  return { from: iso(new Date(t.getFullYear(), t.getMonth(), 1)), to: iso(t) };
+/** La periode affichee est celle qui contient la date d'ancrage ; elle ne depasse jamais aujourd'hui. */
+function range(p: Period, anchor: string) {
+  const a = new Date(`${anchor}T12:00:00`), today = iso(new Date());
+  const cap = (d: string) => (d > today ? today : d);
+  if (p === 'day') return { from: anchor, to: anchor };
+  if (p === 'week') { const mon = new Date(a); mon.setDate(a.getDate() - ((a.getDay() + 6) % 7)); const sun = new Date(mon); sun.setDate(mon.getDate() + 6); return { from: iso(mon), to: cap(iso(sun)) }; }
+  return { from: iso(new Date(a.getFullYear(), a.getMonth(), 1)), to: cap(iso(new Date(a.getFullYear(), a.getMonth() + 1, 0))) };
 }
+const monthLabel = (d: string) => { const l = new Date(`${d}T12:00:00`).toLocaleDateString('fr', { month: 'long', year: 'numeric' }); return l.charAt(0).toUpperCase() + l.slice(1); };
+const fmtMinutes = (m: number) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`);
 const short = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString('fr', { weekday: 'short', day: 'numeric' }).replace('.', '');
 const hhmm = (s: string) => new Date(s).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
 const pctOf = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0);
@@ -83,6 +87,56 @@ function PersonPanel({ person, days, onClose }: { person: PersonReport; days: At
   </Modal>;
 }
 
+/** Recap : un bilan equipe par mois, puis la presence de chaque personne mois par mois. */
+function MonthlyRecap({ count, onOpenMonth }: { count: number; onOpenMonth: (firstDay: string) => void }) {
+  const [rows, setRows] = useState<{ month: string; reports: PersonReport[] }[] | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let live = true; setRows(null); setError('');
+    const t = new Date();
+    const months = Array.from({ length: count }, (_, i) => iso(new Date(t.getFullYear(), t.getMonth() - i, 1)));
+    Promise.all(months.map((m) => { const { from, to } = range('month', m); return api<PersonReport[]>('GET', `/reports/team?from=${from}&to=${to}`).then((reports) => ({ month: m, reports })); }))
+      .then((res) => { if (live) setRows(res); }).catch((e: Error) => { if (live) setError(e.message); });
+    return () => { live = false; };
+  }, [count]);
+  if (error) return <Notice tone="danger">Impossible de charger le récapitulatif : {error}</Notice>;
+  if (!rows) return <Card><Loading /></Card>;
+  const sum = (rs: PersonReport[], k: keyof PersonReport) => rs.reduce((n, x) => n + (x[k] as number), 0);
+  const people = [...new Map(rows.flatMap((x) => x.reports).map((x) => [x.userId, x.fullName])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  const chrono = [...rows].reverse();
+  return <>
+    <Card title="Bilan de l’équipe, mois par mois" meta="Cliquez sur un mois pour l’ouvrir en détail">
+      <div className="table-scroll"><table>
+        <thead><tr><th>Mois</th><th>Présence</th><th className="num-col">Journées</th><th className="num-col">Retards</th><th className="num-col">Absences</th><th className="num-col">Heures sup</th><th className="num-col">Tâches</th></tr></thead>
+        <tbody>{rows.map(({ month, reports }) => {
+          const exp = sum(reports, 'expectedDays'), pres = sum(reports, 'presentDays'), lateU = sum(reports, 'lateUnjustified'), late = lateU + sum(reports, 'lateJustified'), absU = sum(reports, 'absentUnjustified'), abs = absU + sum(reports, 'absentJustified'), pct = pctOf(pres, exp);
+          return <tr key={month} className="row-link" tabIndex={0} onClick={() => onOpenMonth(month)} onKeyDown={(e) => { if (e.key === 'Enter') onOpenMonth(month); }}>
+            <td style={{ textTransform: 'capitalize', fontWeight: 500 }}>{monthLabel(month)}</td>
+            <td>{exp ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><span className="progress"><span style={{ width: `${pct}%` }} /></span><span className="mono">{pct} %</span></span> : <span className="muted">Aucune journée</span>}</td>
+            <td className="num-col">{pres}<span className="muted"> / {exp}</span></td>
+            <td className="num-col">{late}{lateU > 0 && <span className="muted"> · {lateU} nj</span>}</td>
+            <td className="num-col">{abs}{absU > 0 && <span className="muted"> · {absU} nj</span>}</td>
+            <td className="num-col">{fmtMinutes(sum(reports, 'overtimeMinutes'))}</td>
+            <td className="num-col">{sum(reports, 'tasksDone')}<span className="muted"> / {sum(reports, 'tasksPlanned')}</span></td>
+          </tr>;
+        })}</tbody>
+      </table></div>
+      <small>nj : non justifiés. Le mois en cours s’arrête à aujourd’hui.</small>
+    </Card>
+    <Card title="Présence de chaque personne, mois par mois" meta="Taux de présence et nombre de retards ou absences non justifiés">
+      <div className="table-scroll"><table>
+        <thead><tr><th>Personne</th>{chrono.map(({ month }) => <th key={month} className="num-col" style={{ textTransform: 'capitalize' }}>{new Date(`${month}T12:00:00`).toLocaleDateString('fr', { month: 'short', year: '2-digit' }).replace('.', '')}</th>)}</tr></thead>
+        <tbody>{people.map(([id, name]) => <tr key={id}><td style={{ whiteSpace: 'nowrap' }}>{name}</td>{chrono.map(({ month, reports }) => {
+          const x = reports.find((q) => q.userId === id);
+          if (!x || !x.expectedDays) return <td key={month} className="num-col muted">–</td>;
+          const pct = pctOf(x.presentDays, x.expectedDays), issues = x.lateUnjustified + x.absentUnjustified;
+          return <td key={month} className="num-col"><span className={`recap-cell${pct >= 90 ? ' is-good' : pct < 60 ? ' is-low' : ''}`} title={`${x.presentDays} jours sur ${x.expectedDays} · ${x.lateUnjustified} retards et ${x.absentUnjustified} absences non justifiés`}>{pct} %</span>{issues > 0 && <small style={{ display: 'block' }}>{issues} nj</small>}</td>;
+        })}</tr>)}</tbody>
+      </table></div>
+    </Card>
+  </>;
+}
+
 function DashboardPage() {
   const { user } = useSession();
   const [period, setPeriod] = useState<Period>('day');
@@ -96,6 +150,7 @@ function DashboardPage() {
   const [pending, setPending] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<number | null>(null);
+  const [recapMonths, setRecapMonths] = useState(6);
   const canSeeDays = user?.role === 'ADMIN' || user?.role === 'HR';
 
   useEffect(() => {
@@ -131,17 +186,31 @@ function DashboardPage() {
   const { from, to } = range(period, day);
   const names = new Map(reports?.map((r) => [r.userId, r.fullName]) ?? []);
   const detailDays = (days ?? []).filter((d) => detail === 'late' ? d.status === 'LATE' : d.status === 'ABSENT' && !d.justified).sort((a, b) => b.workDate.localeCompare(a.workDate));
-  const moveDay = (offset: number) => { const d = new Date(`${day}T12:00:00`); d.setDate(d.getDate() + offset); setDay(iso(d)); };
+  const todayIso = iso(new Date());
+  const move = (offset: number) => {
+    const d = new Date(`${day}T12:00:00`);
+    if (period === 'month') { d.setDate(1); d.setMonth(d.getMonth() + offset); } else d.setDate(d.getDate() + offset * (period === 'week' ? 7 : 1));
+    const next = iso(d); setDay(next > todayIso ? todayIso : next);
+  };
+  const atPresent = to >= todayIso;
+  const unit = period === 'day' ? 'Jour' : period === 'week' ? 'Semaine' : 'Mois';
+  const fem = period === 'week' ? 'e' : '';
+  const periodLabel = period === 'day' ? new Date(`${day}T12:00:00`).toLocaleDateString('fr', { weekday: 'long', day: 'numeric', month: 'long' })
+    : period === 'week' ? `Semaine du ${short(from)} au ${short(to)}` : period === 'month' ? `${monthLabel(from)} · du ${short(from)} au ${short(to)}` : `Les ${recapMonths} derniers mois`;
 
   return (
-    <Page title="Tableau de bord" meta={<>{period === 'day' ? new Date(`${day}T12:00:00`).toLocaleDateString('fr', { weekday: 'long', day: 'numeric', month: 'long' }) : `${period === 'week' ? 'Semaine en cours' : new Date().toLocaleDateString('fr', { month: 'long', year: 'numeric' })} · du ${short(from)} au ${short(to)}`}{updated && <> · <small>Mis à jour à {hhmm(updated.toISOString())}</small></>}</>}
+    <Page title="Tableau de bord" meta={<><span>{periodLabel}</span>{period !== 'recap' && updated && <> · <small>Mis à jour à {hhmm(updated.toISOString())}</small></>}</>}
       actions={<><div className="segmented" role="group" aria-label="Période">
         <button type="button" aria-pressed={period === 'day'} onClick={() => setPeriod('day')}>Jour</button>
         <button type="button" aria-pressed={period === 'week'} onClick={() => setPeriod('week')}>Semaine</button>
         <button type="button" aria-pressed={period === 'month'} onClick={() => setPeriod('month')}>Mois</button>
-      </div>{period === 'day' && <div className="feature-actions"><IconButton icon="chevronLeft" label="Jour précédent" onClick={() => moveDay(-1)} /><Button size="sm" variant="secondary" onClick={() => setDay(iso(new Date()))}>Aujourd'hui</Button><IconButton icon="chevronRight" label="Jour suivant" onClick={() => moveDay(1)} /></div>}</>}>
+        <button type="button" aria-pressed={period === 'recap'} onClick={() => setPeriod('recap')}>Récap</button>
+      </div>{period === 'recap'
+        ? <div className="segmented" role="group" aria-label="Nombre de mois">{[6, 12].map((n) => <button key={n} type="button" aria-pressed={recapMonths === n} onClick={() => setRecapMonths(n)}>{n} mois</button>)}</div>
+        : <div className="week-nav"><IconButton icon="chevronLeft" label={`${unit} précédent${fem}`} onClick={() => move(-1)} /><Button size="sm" variant="secondary" disabled={atPresent && (period !== 'day' || day === todayIso)} onClick={() => setDay(todayIso)}>{period === 'day' ? 'Aujourd’hui' : period === 'week' ? 'Cette semaine' : 'Ce mois-ci'}</Button><IconButton icon="chevronRight" label={`${unit} suivant${fem}`} disabled={atPresent} onClick={() => move(1)} /></div>}</>}>
       {error && <Notice tone="danger">Impossible de charger le bilan : {error}</Notice>}
 
+      {period === 'recap' ? <MonthlyRecap count={recapMonths} onOpenMonth={(m) => { setDay(m); setPeriod('month'); }} /> : <>
       <div className="stats">
         <Stat label="Présents maintenant" value={now ? <>{presentNow.length}<span className="muted" style={{ fontSize: 16 }}> / {now.length}</span></> : '–'} note="d’après le dernier pointage" accent onClick={() => setDetail('present')} />
         <Stat label="Taux de présence" value={reports ? `${pctOf(totals.pres, totals.exp)} %` : '–'} note={`${totals.pres} journées sur ${totals.exp} attendues`} />
@@ -188,6 +257,7 @@ function DashboardPage() {
           </table></div>}
         <small>nj : non justifiés. Les jours fériés et non travaillés ne comptent pas.</small>
       </Card>
+      </>}
     </Page>
   );
 }
