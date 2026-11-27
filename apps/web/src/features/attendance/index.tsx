@@ -53,7 +53,8 @@ function AttendancePage() {
     } finally { setSaving(false); }
   }
 
-  const worked = days.filter((d) => d.status !== "OFF" && d.status !== "HOLIDAY");
+  const todayIso = new Date().toLocaleDateString("en-CA");
+  const worked = days.filter((d) => d.status !== "OFF" && d.status !== "HOLIDAY" && d.workDate <= todayIso);
   const recent = [...worked].reverse();
   const toJustify = worked.filter((d) => (d.status === "LATE" || d.status === "ABSENT") && !d.justificationStatus);
   const hhmm = (v: string) => new Date(v).toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" });
