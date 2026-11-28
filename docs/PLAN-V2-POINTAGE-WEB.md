@@ -24,10 +24,11 @@ La sortie : appareil + lieu, sans photo ni visage. Rien ne bloque une personne :
 - Enregistrement chez l'admin : consentement écrit, 3 à 5 photos (seule l'empreinte faciale est gardée), enregistrement de l'appareil. Empreinte faciale supprimée à la désactivation du compte.
 - Photos d'arrivée : 7 jours (inchangé).
 
-## À fournir par Francis avant le lot 2
+## Lieu du KiT Hub (fourni par Francis le 28/11/2026)
 
-- Coordonnées GPS du KiT Hub (Google Maps > clic droit sur le bâtiment).
-- Rayon accepté (100 m proposé).
+- Plus Code Google : `J963+6F Bujumbura` (code complet `6G8CJ963+6F`).
+- Coordonnées : **latitude −3.38944, longitude 29.35369** ; rayon **100 m**.
+- À enregistrer en production à la mise en ligne de la V2 : `PUT /api/attendance/site` `{ "lat": -3.38944, "lng": 29.35369, "radiusM": 100 }` (compte admin).
 
 ## Lots
 
