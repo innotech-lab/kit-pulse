@@ -10,8 +10,8 @@ const ROLE: Record<User['role'], string> = { ADMIN: 'Admin', HR: 'RH', COORDINAT
 
 export function Layout({ user, items, active, onLogout, children }: Props) {
   const groups = [
-    { label: 'Mon travail', items: items.filter((i) => MINE.has(i.path)) },
-    { label: 'Équipe', items: items.filter((i) => !MINE.has(i.path)) },
+    { label: 'Mon travail', items: items.filter((i) => MINE.has(i.path) && !(user.role === 'ADMIN' && i.path === 'agenda')) },
+    { label: 'Équipe', items: items.filter((i) => !MINE.has(i.path) || (user.role === 'ADMIN' && i.path === 'agenda')) },
   ].filter((g) => g.items.length);
   return (
     <div className="layout">

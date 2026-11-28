@@ -28,6 +28,8 @@ function useNowMinute() {
 function AgendaPage() {
   const { user } = useSession();
   const canSeeTeam = !!user && user.role !== 'MEMBER';
+  /** L'administration ne pointe pas et n'a pas d'agenda personnel : vue equipe uniquement. */
+  const teamOnly = user?.role === 'ADMIN';
   const now = useNowMinute();
   const [week, setWeek] = useState(() => monday(new Date()));
   const [person, setPerson] = useState('');
@@ -52,7 +54,7 @@ function AgendaPage() {
   }, [from, to, person]);
   useEffect(() => { setEvents(null); void load(); }, [load]);
   useAutoRefresh(load);
-  useEffect(() => { if (canSeeTeam) api<DirectoryEntry[]>('GET', '/users/directory').then(setDirectory).catch(() => {}); }, [canSeeTeam]);
+  useEffect(() => { if (canSeeTeam) api<DirectoryEntry[]>('GET', '/users/directory').then((d) => { setDirectory(d); if (teamOnly) setPerson((p) => p || String(d.find((x) => x.id !== user?.id)?.id ?? '')); }).catch(() => {}); }, [canSeeTeam, teamOnly, user?.id]);
   useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(''), 3000); return () => clearTimeout(t); }, [notice]);
 
   function openSlot(date: string, startMin: number) { setEditing(null); setForm(fresh(date, startMin)); }
@@ -90,7 +92,7 @@ function AgendaPage() {
         <IconButton icon="chevronRight" label="Semaine suivante" onClick={() => setWeek(shift(week, 7))} />
       </div>
       {canSeeTeam && <select className="compact-select" aria-label="Agenda de" value={person} onChange={(e) => setPerson(e.target.value)}>
-        <option value="">Mon agenda</option>{directory.filter((d) => d.id !== user?.id).map((d) => <option key={d.id} value={d.id}>{d.fullName}</option>)}
+        {!teamOnly && <option value="">Mon agenda</option>}{directory.filter((d) => d.id !== user?.id).map((d) => <option key={d.id} value={d.id}>{d.fullName}</option>)}
       </select>}
       <Button icon="plus" onClick={() => openSlot(dateKey(days.find((d) => dateKey(d) === today) ?? days[0]!), Math.max(START, Math.min(END - 60, Math.ceil(nowMin / 30) * 30)))}>Nouvel événement</Button>
     </>}>
@@ -141,5 +143,5 @@ function AgendaPage() {
     {dialog}
   </Page>;
 }
-const feature: Feature = { path: 'agenda', label: 'Agenda', order: 30, roles: ['HR', 'COORDINATOR', 'MEMBER'], Component: AgendaPage };
+const feature: Feature = { path: 'agenda', label: 'Agenda', order: 30, roles: ['ADMIN', 'HR', 'COORDINATOR', 'MEMBER'], Component: AgendaPage };
 export default feature;
