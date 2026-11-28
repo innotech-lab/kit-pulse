@@ -137,16 +137,20 @@ export function Modal({ open, title, meta, onClose, dismissible = true, size = '
   open: boolean; title: ReactNode; meta?: ReactNode; onClose: () => void; dismissible?: boolean; size?: 'sm' | 'md' | 'lg'; children: ReactNode; footer?: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // onClose est souvent une fonction recreee a chaque rendu : on la garde dans une ref pour que
+  // l'effet ne se relance qu'a l'ouverture (sinon chaque frappe remettrait le curseur sur le premier champ).
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
     const first = ref.current?.querySelector<HTMLElement>('input:not([type=hidden]), select, textarea, button:not(.modal-x)');
     (first ?? ref.current)?.focus();
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && dismissible) onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && dismissible) closeRef.current(); };
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
     return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; prev?.focus?.(); };
-  }, [open, dismissible, onClose]);
+  }, [open, dismissible]);
   if (!open) return null;
   return createPortal(<div className="modal-backdrop" onMouseDown={(e) => { if (dismissible && e.target === e.currentTarget) onClose(); }}>
     <div ref={ref} className={`modal modal-${size}`} role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined} tabIndex={-1}>
