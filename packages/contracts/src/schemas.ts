@@ -38,9 +38,21 @@ export const PunchInput = z.object({
     simulated: z.boolean(), takenAt: IsoDate,
   }),
   signature: z.string().min(20).max(300),
+  /** Arrivee : photo prise par la webcam au moment du pointage (data URL JPEG). Ignoree pour une sortie. */
+  photo: z.string().regex(/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/).max(400_000).nullable().default(null),
 });
 export type PunchInput = z.infer<typeof PunchInput>;
-export const Punch = z.object({ id: Id, userId: Id, type: PunchType, at: IsoDate, workDate: WorkDate, networkId: Id.nullable(), source: z.enum(['AGENT', 'MANUAL']), simulated: z.boolean() });
+export const PunchReviewStatus = z.enum(['PENDING', 'APPROVED', 'REJECTED']);
+export type PunchReviewStatus = z.infer<typeof PunchReviewStatus>;
+export const Punch = z.object({ id: Id, userId: Id, type: PunchType, at: IsoDate, workDate: WorkDate, networkId: Id.nullable(), source: z.enum(['AGENT', 'MANUAL']), simulated: z.boolean(),
+  reviewStatus: PunchReviewStatus.default('APPROVED'), reviewNote: z.string().nullable().default(null) });
+/** Arrivee a valider par les RH (photo prise au pointage, gardee 7 jours). */
+export const ArrivalReview = z.object({ punchId: Id, userId: Id, fullName: z.string(), badgeId: z.string(), at: IsoDate, workDate: WorkDate, deviceLabel: z.string().nullable(),
+  hasPhoto: z.boolean(), reviewStatus: PunchReviewStatus, reviewNote: z.string().nullable(), reviewedAt: IsoDate.nullable(), reviewedBy: z.string().nullable() });
+export type ArrivalReview = z.infer<typeof ArrivalReview>;
+export const ArrivalDecisionInput = z.object({ status: z.enum(['APPROVED', 'REJECTED']), note: z.string().trim().max(300).nullable().default(null) })
+  .refine((d) => d.status === 'APPROVED' || !!d.note, { message: 'Un motif est obligatoire pour refuser.', path: ['note'] });
+export type ArrivalDecisionInput = z.infer<typeof ArrivalDecisionInput>;
 export type Punch = z.infer<typeof Punch>;
 export const ManualPunchInput = z.object({ userId: Id, type: PunchType, at: IsoDate, reason: text(300) });
 
@@ -51,6 +63,8 @@ export const AttendanceDay = z.object({
   justificationStatus: JustificationStatus.nullable(), justified: z.boolean(),
   /** Heures sup mesurees (non validees) : minutes avant le debut et apres la fin de l'horaire, seuil de 15 min. */
   minutesEarly: z.number().int().min(0).default(0), minutesAfter: z.number().int().min(0).default(0),
+  /** Arrivee du jour encore a valider par les RH : la journee compte deja, avec l'etiquette « a valider ». */
+  arrivalPending: z.boolean().default(false),
 });
 export type AttendanceDay = z.infer<typeof AttendanceDay>;
 export const ScheduleDay = z.object({ weekday: z.number().int().min(1).max(7), startTime: z.string().regex(/^\d{2}:\d{2}$/), endTime: z.string().regex(/^\d{2}:\d{2}$/), graceMinutes: z.number().int().min(0).max(120) });

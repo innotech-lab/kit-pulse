@@ -26,8 +26,8 @@ function AttendancePage() {
   const from = `${new Date().getFullYear()}-01-01`;
   const to = `${new Date().getFullYear()}-12-31`;
   const mockDays: AttendanceDay[] = [
-    { userId: user?.id ?? -1, workDate: '2026-11-24', status: 'LATE', minutesLate: 11, firstIn: '2026-11-24T08:11:00.000Z', lastOut: '2026-11-24T17:00:00.000Z', missingOut: false, justificationStatus: 'ACCEPTED', justified: true, minutesEarly: 0, minutesAfter: 0 },
-    { userId: user?.id ?? -1, workDate: '2026-11-25', status: 'PENDING', minutesLate: 0, firstIn: null, lastOut: null, missingOut: false, justificationStatus: null, justified: false, minutesEarly: 0, minutesAfter: 0 },
+    { userId: user?.id ?? -1, workDate: '2026-11-24', status: 'LATE', minutesLate: 11, firstIn: '2026-11-24T08:11:00.000Z', lastOut: '2026-11-24T17:00:00.000Z', missingOut: false, justificationStatus: 'ACCEPTED', justified: true, minutesEarly: 0, minutesAfter: 0, arrivalPending: false },
+    { userId: user?.id ?? -1, workDate: '2026-11-25', status: 'PENDING', minutesLate: 0, firstIn: null, lastOut: null, missingOut: false, justificationStatus: null, justified: false, minutesEarly: 0, minutesAfter: 0, arrivalPending: false },
   ];
   const mockJustifications: Justification[] = [{ id: -1, userId: user?.id ?? -1, workDate: '2026-11-24', kind: 'LATE', reason: 'Motif fictif de démonstration.', status: 'ACCEPTED', reviewNote: null }];
 
@@ -87,7 +87,7 @@ function AttendancePage() {
               <td><DayLine early={d.minutesEarly} after={d.minutesAfter} firstIn={d.firstIn} lastOut={d.lastOut} late={d.status === "LATE"} now={d.status === "PENDING"} /></td>
               <td className="mono" style={{ whiteSpace: "nowrap" }}>{d.firstIn ? hhmm(d.firstIn) : "--:--"} – {d.lastOut ? hhmm(d.lastOut) : d.missingOut ? "sortie oubliée" : "--:--"}</td>
               <td>{d.minutesEarly + d.minutesAfter > 0 ? <><span className="mono">{formatMinutes(d.minutesEarly + d.minutesAfter)}</span><small style={{ display: 'block' }}>{[d.minutesEarly ? `${d.minutesEarly} min avant` : '', d.minutesAfter ? `${d.minutesAfter} min après` : ''].filter(Boolean).join(' · ')}</small></> : <span className="muted">–</span>}</td>
-              <td><Tag tone={tone(d)}>{attendanceStatusLabel(d)}{d.status === "LATE" ? ` · ${d.minutesLate} min` : ""}</Tag>{d.justificationStatus && !d.justified && <small style={{ display: "block", marginTop: 4 }}>{justificationStatus[d.justificationStatus]}</small>}</td>
+              <td><Tag tone={tone(d)}>{attendanceStatusLabel(d)}{d.status === "LATE" ? ` · ${d.minutesLate} min` : ""}</Tag>{d.arrivalPending && <> <Tag tone="warn">À valider</Tag></>}{d.justificationStatus && !d.justified && <small style={{ display: "block", marginTop: 4 }}>{justificationStatus[d.justificationStatus]}</small>}</td>
               <td className="num-col">{(d.status === "LATE" || d.status === "ABSENT") && !d.justificationStatus && <Button size="sm" variant="secondary" onClick={() => prefill(d)}>Justifier</Button>}</td>
             </tr>)}</tbody>
           </table></div>}

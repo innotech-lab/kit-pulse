@@ -26,7 +26,7 @@ export function computeDays(ctx: Ctx, userId: number, from: string, to: string):
   // On ne compte pas de journees avant l'arrivee de la personne (creation du compte ou premier pointage).
   const user = ctx.db.prepare('SELECT created_at FROM users WHERE id = ?').get(userId) as { created_at: string } | undefined;
   if (!user) return [];
-  const first = ctx.db.prepare('SELECT MIN(work_date) AS d FROM punches WHERE user_id = ?').get(userId) as { d: string | null };
+  const first = ctx.db.prepare("SELECT MIN(work_date) AS d FROM punches WHERE user_id = ? AND review_status != 'REJECTED'").get(userId) as { d: string | null };
   const created = localParts(new Date(user.created_at), tz).date;
   const arrival = first.d && first.d < created ? first.d : created;
   const start = from < arrival ? arrival : from;
@@ -37,8 +37,8 @@ export function computeDays(ctx: Ctx, userId: number, from: string, to: string):
     schedule.set(r.weekday, { start: r.start_time, end: r.end_time, grace: r.grace_minutes });
   }
   const holidays = new Set((ctx.db.prepare('SELECT date FROM holidays WHERE date BETWEEN ? AND ?').all(start, to) as { date: string }[]).map((h) => h.date));
-  const punches = ctx.db.prepare('SELECT type, at, work_date FROM punches WHERE user_id = ? AND work_date BETWEEN ? AND ? ORDER BY at').all(userId, start, to) as { type: 'IN' | 'OUT'; at: string; work_date: string }[];
-  const byDay = new Map<string, { type: 'IN' | 'OUT'; at: string }[]>();
+  const punches = ctx.db.prepare("SELECT type, at, work_date, review_status FROM punches WHERE user_id = ? AND work_date BETWEEN ? AND ? AND review_status != 'REJECTED' ORDER BY at").all(userId, start, to) as { type: 'IN' | 'OUT'; at: string; work_date: string; review_status: string }[];
+  const byDay = new Map<string, { type: 'IN' | 'OUT'; at: string; review_status: string }[]>();
   for (const p of punches) { const l = byDay.get(p.work_date) ?? []; l.push(p); byDay.set(p.work_date, l); }
   const justs = new Map<string, JustStatus>();
   for (const j of ctx.db.prepare('SELECT work_date, kind, status FROM justifications WHERE user_id = ? AND work_date BETWEEN ? AND ?').all(userId, start, to) as { work_date: string; kind: string; status: JustStatus }[]) {
@@ -75,7 +75,7 @@ export function computeDays(ctx: Ctx, userId: number, from: string, to: string):
       if (minutesEarly < OVERTIME_THRESHOLD) minutesEarly = 0;
       if (minutesAfter < OVERTIME_THRESHOLD) minutesAfter = 0;
     }
-    days.push({ userId, workDate: date, status, minutesLate, firstIn, lastOut, missingOut, justificationStatus, justified: justificationStatus === 'ACCEPTED', minutesEarly, minutesAfter });
+    days.push({ userId, workDate: date, status, minutesLate, firstIn, lastOut, missingOut, justificationStatus, justified: justificationStatus === 'ACCEPTED', minutesEarly, minutesAfter, arrivalPending: ins[0]?.review_status === 'PENDING' });
   }
   return days;
 }

@@ -1,6 +1,6 @@
 {
-  "schema": "f776c23cf7b327da83efbdd79494f2b2307111382dbda368e4134c056b69f158",
-  "data": "f0ebcb7930b0c127edb87fe07c1395f4472dcbc9e5f91808900c832496f2f16d",
+  "schema": "ebd358ad098daf7be87a58783a82247c31c3f9d919f29725bb019ed76de718c5",
+  "data": "241d928934551622cf50769d4198e385fdd394c26c577f0c4f537945254fe1c0",
   "rows": {
     "audit_log": 0,
     "availability": 7,
@@ -11,7 +11,7 @@
     "networks": 2,
     "punch_rejections": 0,
     "punches": 23,
-    "schema_migrations": 3,
+    "schema_migrations": 4,
     "settings": 1,
     "task_updates": 0,
     "tasks": 4,

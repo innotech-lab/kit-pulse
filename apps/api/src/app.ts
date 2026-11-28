@@ -17,6 +17,8 @@ export async function createApp(ctx: Ctx) {
     res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'DENY', 'Referrer-Policy': 'same-origin', 'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" });
     next();
   });
+  // Le pointage d'arrivee transporte une photo (JPEG < 300 Ko) : limite plus large pour cette seule route.
+  app.use('/api/presence/punch', express.json({ limit: '450kb' }));
   app.use('/api', express.json({ limit: '100kb' }));
   // Protection CSRF : cookie SameSite=Strict + en-tete impossible a poser depuis un formulaire tiers.
   app.use('/api', (req, _res, next) => {

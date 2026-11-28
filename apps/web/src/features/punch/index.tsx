@@ -1,5 +1,5 @@
 // Alain. Pointage (WEB-PUNCH-001/002) : une seule action proposee, la suivante ; frise de la journee ; semaine en cours.
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Attestation, AttendanceDay, Punch, PunchType } from '@kit-pulse/contracts';
 import { api, ApiError } from '../../core/api.ts';
 import type { Feature } from '../../core/feature.ts';
@@ -10,7 +10,7 @@ const STEPS: { key: Step; label: string }[] = [
   { key: 'agent', label: 'Agent du poste' }, { key: 'device', label: 'Poste approuvé' }, { key: 'network', label: 'Routeur KiT Hub' }, { key: 'saved', label: 'Enregistré' },
 ];
 
-async function punch(type: PunchType, onStep: (s: Step) => void): Promise<Punch> {
+async function punch(type: PunchType, onStep: (s: Step) => void, photo: string | null): Promise<Punch> {
   onStep('agent');
   const status = await api<{ publicKey: string }>('GET', '/__agent/status').catch(() => { throw new ApiError(0, 'AGENT_OFF', "L'agent KIT-Pulse ne répond pas sur ce poste. Démarrez-le puis réessayez."); });
   onStep('device');
@@ -19,9 +19,45 @@ async function punch(type: PunchType, onStep: (s: Step) => void): Promise<Punch>
   onStep('network');
   const { nonce } = await api<{ nonce: string }>('POST', '/presence/challenge', { body: { type } });
   const proof = await api<{ attestation: Attestation; signature: string }>('POST', '/__agent/attest', { body: { nonce } });
-  const p = await api<Punch>('POST', '/presence/punch', { body: proof });
+  const p = await api<Punch>('POST', '/presence/punch', { body: { ...proof, photo: type === 'IN' ? photo : null } });
   onStep('saved');
   return p;
+}
+
+type CamState = 'off' | 'asking' | 'ready' | 'denied' | 'missing';
+/** Webcam pour la photo d'arrivee. Rien n'est enregistre tant que l'on ne pointe pas. */
+function useCamera(active: boolean) {
+  const video = useRef<HTMLVideoElement>(null);
+  const stream = useRef<MediaStream | null>(null);
+  const [state, setState] = useState<CamState>('off');
+  const start = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) { setState('missing'); return; }
+    setState('asking');
+    try {
+      const st = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }, audio: false });
+      stream.current = st;
+      if (video.current) { video.current.srcObject = st; await video.current.play().catch(() => {}); }
+      setState('ready');
+    } catch (e) {
+      const name = (e as DOMException).name;
+      setState(name === 'NotFoundError' || name === 'OverconstrainedError' ? 'missing' : 'denied');
+    }
+  }, []);
+  useEffect(() => {
+    if (!active) return;
+    void start();
+    return () => { stream.current?.getTracks().forEach((t) => t.stop()); stream.current = null; setState('off'); };
+  }, [active, start]);
+  /** Image JPEG de 480 px de large, compressee (environ 30 a 60 Ko). */
+  const capture = () => {
+    const v = video.current;
+    if (!v || state !== 'ready' || !v.videoWidth) return null;
+    const w = 480, h = Math.round((v.videoHeight / v.videoWidth) * w);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d')!.drawImage(v, 0, 0, w, h);
+    return c.toDataURL('image/jpeg', 0.72);
+  };
+  return { video, state, capture, retry: start };
 }
 
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
@@ -63,15 +99,20 @@ function PunchPage() {
 
   async function go(type: PunchType) {
     setBusy(true); setError(''); setDone(null);
-    try { setDone(await punch(type, setStep)); load(); } catch (e) { setError((e as Error).message); setStep(null); } finally { setBusy(false); }
+    const photo = type === 'IN' ? cam.capture() : null;
+    if (type === 'IN' && !photo) { setError('La photo n’a pas pu être prise. Autorisez la webcam, puis réessayez.'); setBusy(false); return; }
+    try { setDone(await punch(type, setStep, photo)); load(); } catch (e) { setError((e as Error).message); setStep(null); } finally { setBusy(false); }
   }
 
-  const ins = today?.punches.filter((p) => p.type === 'IN') ?? [];
-  const outs = today?.punches.filter((p) => p.type === 'OUT') ?? [];
+  const valid = today?.punches.filter((p) => p.reviewStatus !== 'REJECTED') ?? [];
+  const ins = valid.filter((p) => p.type === 'IN');
+  const outs = valid.filter((p) => p.type === 'OUT');
   const firstIn = ins[0]?.at ?? null;
   const lastOut = today?.next === 'IN' && outs.length ? outs[outs.length - 1]!.at : null;
   const late = firstIn ? minutesOf(firstIn) > 8 * 60 + 10 : false;
   const next = today?.next ?? 'IN';
+  const cam = useCamera(!!today && next === 'IN');
+  const camBlocked = next === 'IN' && cam.state !== 'ready';
   const stepIndex = step ? STEPS.findIndex((s) => s.key === step) : -1;
 
   return (
@@ -88,10 +129,14 @@ function PunchPage() {
             </p>
           </div>
           <div className="punch-action">
-            <Button size="lg" icon={next === 'IN' ? 'login' : 'logout'} disabled={busy || !today} onClick={() => { void go(next); }}>
+            {next === 'IN' && today && <div className={`punch-cam is-${cam.state}`}>
+              <video ref={cam.video} muted playsInline aria-label="Aperçu de la webcam" />
+              {cam.state !== 'ready' && <span className="punch-cam-msg">{cam.state === 'asking' || cam.state === 'off' ? 'Ouverture de la webcam…' : cam.state === 'missing' ? 'Aucune webcam détectée' : 'Webcam bloquée'}</span>}
+            </div>}
+            <Button size="lg" icon={next === 'IN' ? 'login' : 'logout'} disabled={busy || !today || camBlocked} onClick={() => { void go(next); }}>
               {busy ? 'Vérification…' : next === 'IN' ? 'Pointer mon arrivée' : 'Pointer mon départ'}
             </Button>
-            <small>La preuve vient du routeur KiT Hub, pas du nom du Wi-Fi</small>
+            <small>{next === 'IN' ? 'Photo prise au pointage, vue par les RH, supprimée après 7 jours' : 'La preuve vient du routeur KiT Hub, pas du nom du Wi-Fi'}</small>
           </div>
         </div>
         <div className="punch-ribbon">
@@ -101,7 +146,12 @@ function PunchPage() {
         {(busy || done || step) && <ol className="punch-steps" aria-label="Étapes du pointage">
           {STEPS.map((s, i) => <li key={s.key} className={i < stepIndex || (done && i <= stepIndex) ? 'is-done' : i === stepIndex ? 'is-current' : ''}>{s.label}</li>)}
         </ol>}
-        {done && <Notice tone="ok">{done.type === 'IN' ? 'Arrivée' : 'Départ'} enregistré à {hhmm(done.at)}{done.simulated ? ' · réseau simulé (développement)' : ''}</Notice>}
+        {next === 'IN' && (cam.state === 'denied' || cam.state === 'missing') && <Notice tone="warn">
+          {cam.state === 'denied'
+            ? <>La webcam est bloquée pour ce site. Cliquez sur l’icône de caméra (ou le cadenas) à gauche de l’adresse, choisissez « Autoriser », puis <button type="button" className="link-btn" onClick={() => void cam.retry()}>réessayez</button>.</>
+            : <>Aucune webcam n’est détectée. Branchez-en une ou vérifiez qu’aucune autre application ne l’utilise, puis <button type="button" className="link-btn" onClick={() => void cam.retry()}>réessayez</button>.</>}
+        </Notice>}
+        {done && <Notice tone="ok">{done.type === 'IN' ? 'Arrivée' : 'Départ'} enregistré à {hhmm(done.at)}{done.type === 'IN' ? ' · en attente de validation par les RH' : ''}{done.simulated ? ' · réseau simulé (développement)' : ''}</Notice>}
         {error && <Notice tone="danger">{error}</Notice>}
       </section>
 
@@ -119,7 +169,9 @@ function PunchPage() {
           {!today ? <Loading /> : today.punches.length === 0 ? <Empty title="Aucun pointage aujourd’hui">Votre arrivée apparaîtra ici</Empty> :
             <ul className="feature-list">{today.punches.map((p) => <li key={p.id} className="punch-item">
               <span className="mono">{hhmm(p.at)}</span><span>{p.type === 'IN' ? 'Arrivée' : 'Départ'}</span>
-              {p.source === 'MANUAL' ? <Tag tone="accent">Correction RH</Tag> : p.simulated ? <Tag>Simulé</Tag> : <Tag tone="ok">Routeur vérifié</Tag>}
+              {p.reviewStatus === 'REJECTED' ? <Tag tone="danger">Refusée par les RH</Tag> : p.reviewStatus === 'PENDING' ? <Tag tone="warn">À valider par les RH</Tag>
+                : p.source === 'MANUAL' ? <Tag tone="accent">Correction RH</Tag> : p.simulated ? <Tag>Simulé</Tag> : <Tag tone="ok">Routeur vérifié</Tag>}
+              {p.reviewStatus === 'REJECTED' && p.reviewNote && <small style={{ gridColumn: '1 / -1' }}>Motif : {p.reviewNote}</small>}
             </li>)}</ul>}
         </Card>
       </div>

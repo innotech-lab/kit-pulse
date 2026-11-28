@@ -5,6 +5,8 @@ export interface Config {
   networks: { ssid: string; gateways: string[]; bssids: string[] }[];
   /** Proxy HTTPS de confiance (ex. loopback pour nginx sur la meme machine) ; vide = aucun. */
   trustProxy: string;
+  /** Photos d'arrivee (gardees 7 jours). */
+  photosDir: string;
 }
 const list = (v: string | undefined) => (v ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 
@@ -23,6 +25,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     networkMode: mode, allowSimulated: !production && env.ALLOW_SIMULATED_NETWORK === 'true',
     autoApproveDevices: !production && env.DEV_AUTO_APPROVE_DEVICES === 'true',
     trustProxy: env.TRUST_PROXY ?? '',
+    photosDir: env.PHOTOS_DIR || './data/photos',
     networks: ['1', '2'].flatMap((n) => {
       const ssid = env[`KITHUB_NET${n}_SSID`];
       return ssid ? [{ ssid, gateways: list(env[`KITHUB_NET${n}_GATEWAY_MACS`]), bssids: list(env[`KITHUB_NET${n}_BSSIDS`]) }] : [];

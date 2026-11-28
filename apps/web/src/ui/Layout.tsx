@@ -4,7 +4,7 @@ import type { User } from '@kit-pulse/contracts';
 import { Avatar, Icon, IconButton, type IconName } from './components.tsx';
 
 interface Props { user: User; items: { path: string; label: string }[]; active: string; onLogout: () => Promise<void>; children: ReactNode }
-const ICONS: Record<string, IconName> = { pointage: 'clock', tasks: 'tasks', agenda: 'calendar', attendance: 'attendance', equipe: 'team', dashboard: 'dashboard', reviews: 'review', admin: 'admin' };
+const ICONS: Record<string, IconName> = { pointage: 'clock', tasks: 'tasks', agenda: 'calendar', attendance: 'attendance', equipe: 'team', dashboard: 'dashboard', reviews: 'review', arrivees: 'camera', admin: 'admin' };
 const MINE = new Set(['pointage', 'tasks', 'agenda', 'attendance']);
 const ROLE: Record<User['role'], string> = { ADMIN: 'Admin', HR: 'RH', COORDINATOR: 'Coordination', MEMBER: 'Membre' };
 

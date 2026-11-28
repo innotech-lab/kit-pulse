@@ -459,3 +459,28 @@ tbody tr:hover { background: var(--surface-2); }
   .auth-legend { display: none; }
   .auth-panel { padding: var(--s-8) var(--s-5); }
 }
+
+/* ---------- Photo d'arrivee ---------- */
+.punch-cam { position: relative; width: 168px; aspect-ratio: 4 / 3; border-radius: 12px; overflow: hidden; background: var(--n-100); justify-self: end; border: 1px solid var(--line); }
+.punch-cam video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: block; }
+.punch-cam:not(.is-ready) video { visibility: hidden; }
+.punch-cam-msg { position: absolute; inset: 0; display: grid; place-items: center; padding: var(--s-2); text-align: center; font-size: var(--t-xs); color: var(--text-3); }
+.punch-cam.is-denied, .punch-cam.is-missing { border-color: rgb(154 90 6 / 0.4); background: var(--warn-soft); }
+.punch-cam.is-denied .punch-cam-msg, .punch-cam.is-missing .punch-cam-msg { color: var(--warn); }
+.link-btn { border: 0; padding: 0; background: none; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
+@media (max-width: 760px) { .punch-cam { justify-self: stretch; width: 100%; } }
+
+/* ---------- Arrivees a valider ---------- */
+.arrival-grid { list-style: none; padding: 0; margin-bottom: 0; display: grid; gap: var(--s-4); grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.arrival { display: grid; gap: var(--s-3); padding: var(--s-4); }
+.arrival > * + * { margin-top: 0; }
+.arrival-photo { display: block; width: 100%; aspect-ratio: 4 / 3; padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: var(--n-100); cursor: zoom-in; }
+.arrival-photo:disabled { cursor: default; }
+.arrival-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.arrival-photo span { display: grid; place-items: center; height: 100%; font-size: var(--t-sm); color: var(--text-3); }
+.arrival-who { display: grid; grid-template-columns: 32px 1fr; gap: var(--s-3); align-items: center; }
+.arrival-who div { display: grid; }
+.arrival-who strong { font-weight: 500; }
+.arrival-when { font-size: var(--t-sm); color: var(--text-2); }
+.arrival .feature-actions .btn { flex: 1; }
+.arrival-zoom { width: 100%; border-radius: 12px; display: block; }

@@ -25,7 +25,7 @@ export async function startTestApi(env: Record<string, string> = {}) {
     return { status: res.status, json: text ? JSON.parse(text) : null, cookie: (res.headers.get('set-cookie') ?? '').split(';')[0]! };
   }
   return {
-    ctx, call,
+    ctx, call, base,
     login: async (name: string) => (await call('POST', '/auth/login', { body: { email: `${name}@kitpulse.local`, password: SEED_PASSWORD } })).cookie,
     setClock: (iso: string) => { clock = new Date(iso); },
     close: () => new Promise((r) => { server.closeAllConnections(); server.close(r); db.close(); }),
