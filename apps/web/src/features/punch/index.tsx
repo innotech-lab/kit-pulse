@@ -1,25 +1,41 @@
 // Alain. Pointage (WEB-PUNCH-001/002) : une seule action proposee, la suivante ; frise de la journee ; semaine en cours.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Attestation, AttendanceDay, Punch, PunchType } from '@kit-pulse/contracts';
-import { api, ApiError } from '../../core/api.ts';
+import { api } from '../../core/api.ts';
+import { defaultDeviceLabel, proveDevice } from '../../core/device.ts';
+import { useSession } from '../../core/session.tsx';
 import type { Feature } from '../../core/feature.ts';
 import { Clock, Button, Card, DayLine, DayScale, Empty, Loading, Notice, Page, Tag, minutesOf, useAutoRefresh } from '../../ui/components.tsx';
 
-type Step = 'agent' | 'device' | 'network' | 'saved';
+type Step = 'device' | 'geo' | 'send' | 'saved';
 const STEPS: { key: Step; label: string }[] = [
-  { key: 'agent', label: 'Agent du poste' }, { key: 'device', label: 'Poste approuvé' }, { key: 'network', label: 'Routeur KiT Hub' }, { key: 'saved', label: 'Enregistré' },
+  { key: 'device', label: 'Appareil reconnu' }, { key: 'geo', label: 'Position' }, { key: 'send', label: 'Envoi' }, { key: 'saved', label: 'Enregistré' },
 ];
 
-async function punch(type: PunchType, onStep: (s: Step) => void, photo: string | null): Promise<Punch> {
-  onStep('agent');
-  const status = await api<{ publicKey: string }>('GET', '/__agent/status').catch(() => { throw new ApiError(0, 'AGENT_OFF', "L'agent KIT-Pulse ne répond pas sur ce poste. Démarrez-le puis réessayez."); });
+/** Position du navigateur ; jamais bloquante : refus ou panne = signale a la RH. */
+function locate(): Promise<{ geo: { lat: number; lng: number; accuracy: number } | null; geoError: 'DENIED' | 'UNAVAILABLE' | null }> {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve({ geo: null, geoError: 'UNAVAILABLE' }); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ geo: { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy }, geoError: null }),
+      (err) => resolve({ geo: null, geoError: err.code === err.PERMISSION_DENIED ? 'DENIED' : 'UNAVAILABLE' }),
+      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 30_000 },
+    );
+  });
+}
+
+/** Pointage sans agent : appareil (cle du navigateur), position, photo ; la RH valide l'arrivee. */
+async function punch(type: PunchType, onStep: (s: Step) => void, photo: string | null, owner: string): Promise<Punch> {
   onStep('device');
-  const device = await api<{ status: string }>('POST', '/devices/enroll', { body: { publicKey: status.publicKey, label: 'Poste de travail' } });
-  if (device.status !== 'APPROVED') throw new ApiError(0, 'DEVICE_PENDING', "Poste enregistré. Un administrateur doit maintenant l'approuver.");
-  onStep('network');
   const { nonce } = await api<{ nonce: string }>('POST', '/presence/challenge', { body: { type } });
-  const proof = await api<{ attestation: Attestation; signature: string }>('POST', '/__agent/attest', { body: { nonce } });
-  const p = await api<Punch>('POST', '/presence/punch', { body: { ...proof, photo: type === 'IN' ? photo : null } });
+  const proof = await proveDevice(nonce, defaultDeviceLabel(owner)).catch(() => ({ keyId: null, signature: null, fingerprint: null, privateMode: null }));
+  onStep('geo');
+  const where = await locate();
+  onStep('send');
+  const p = await api<Punch>('POST', '/presence/web-punch', { body: {
+    type, nonce, deviceKeyId: proof.keyId, deviceSignature: proof.signature, fingerprint: proof.fingerprint, privateMode: proof.privateMode,
+    geo: where.geo, geoError: where.geoError, photo: type === 'IN' ? photo : null, livenessFrames: [],
+  } });
   onStep('saved');
   return p;
 }
@@ -81,6 +97,7 @@ function useNow() {
 }
 
 function PunchPage() {
+  const { user } = useSession();
   const now = useNow();
   const [today, setToday] = useState<{ workDate: string; punches: Punch[]; next: PunchType } | null>(null);
   const [week, setWeek] = useState<AttendanceDay[] | null>(null);
@@ -101,7 +118,7 @@ function PunchPage() {
     setBusy(true); setError(''); setDone(null);
     const photo = type === 'IN' ? cam.capture() : null;
     if (type === 'IN' && !photo) { setError('La photo n’a pas pu être prise. Autorisez la webcam, puis réessayez.'); setBusy(false); return; }
-    try { setDone(await punch(type, setStep, photo)); load(); } catch (e) { setError((e as Error).message); setStep(null); } finally { setBusy(false); }
+    try { setDone(await punch(type, setStep, photo, user?.fullName ?? 'moi')); load(); } catch (e) { setError((e as Error).message); setStep(null); } finally { setBusy(false); }
   }
 
   const valid = today?.punches.filter((p) => p.reviewStatus !== 'REJECTED') ?? [];
@@ -136,7 +153,7 @@ function PunchPage() {
             <Button size="lg" icon={next === 'IN' ? 'login' : 'logout'} disabled={busy || !today || camBlocked} onClick={() => { void go(next); }}>
               {busy ? 'Vérification…' : next === 'IN' ? 'Pointer mon arrivée' : 'Pointer mon départ'}
             </Button>
-            <small>{next === 'IN' ? 'Photo prise au pointage, vue par les RH, supprimée après 7 jours' : 'La preuve vient du routeur KiT Hub, pas du nom du Wi-Fi'}</small>
+            <small>{next === 'IN' ? 'Photo prise au pointage, vue par les RH, supprimée après 7 jours' : 'Appareil et position vérifiés au départ'}</small>
           </div>
         </div>
         <div className="punch-ribbon">
@@ -151,7 +168,7 @@ function PunchPage() {
             ? <>La webcam est bloquée pour ce site. Cliquez sur l’icône de caméra (ou le cadenas) à gauche de l’adresse, choisissez « Autoriser », puis <button type="button" className="link-btn" onClick={() => void cam.retry()}>réessayez</button>.</>
             : <>Aucune webcam n’est détectée. Branchez-en une ou vérifiez qu’aucune autre application ne l’utilise, puis <button type="button" className="link-btn" onClick={() => void cam.retry()}>réessayez</button>.</>}
         </Notice>}
-        {done && <Notice tone="ok">{done.type === 'IN' ? 'Arrivée' : 'Départ'} enregistré à {hhmm(done.at)}{done.type === 'IN' ? ' · en attente de validation par les RH' : ''}{done.simulated ? ' · réseau simulé (développement)' : ''}</Notice>}
+        {done && <Notice tone="ok">{done.type === 'IN' ? 'Arrivée' : 'Départ'} enregistré à {hhmm(done.at)}{done.type === 'IN' ? ' · en attente de validation par les RH' : ''}</Notice>}
         {error && <Notice tone="danger">{error}</Notice>}
       </section>
 
