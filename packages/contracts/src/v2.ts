@@ -85,5 +85,5 @@ export const Notification = z.object({
   link: z.string().nullable(), createdAt: IsoDate, readAt: IsoDate.nullable(),
 });
 export type Notification = z.infer<typeof Notification>;
-export const NotificationList = z.object({ unread: z.number().int(), items: z.array(Notification) });
+export const NotificationList = z.object({ unread: z.number().int(), read: z.number().int(), items: z.array(Notification) });
 export type NotificationList = z.infer<typeof NotificationList>;

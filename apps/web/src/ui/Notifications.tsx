@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Notification, NotificationKind, NotificationList } from '@kit-pulse/contracts';
 import { api } from '../core/api.ts';
-import { Button, Empty, Icon, Loading, Modal, Notice, useAutoRefresh, type IconName } from './components.tsx';
+import { Button, Empty, Icon, Loading, Modal, Notice, useAutoRefresh, useConfirm, type IconName } from './components.tsx';
 
 const icons: Record<NotificationKind, IconName> = {
   TASK_ASSIGNED: 'tasks', TASK_UPDATED: 'tasks', JUSTIFICATION_SUBMITTED: 'review', JUSTIFICATION_DECIDED: 'review',
@@ -21,6 +21,7 @@ export function Notifications() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const { confirm, dialog } = useConfirm();
   async function refresh() {
     try { setData(await api<NotificationList>('GET', '/notifications')); setError(''); }
     catch (e) { setError(e instanceof Error ? e.message : 'Chargement impossible'); }
@@ -40,12 +41,19 @@ export function Notifications() {
     try { await api('POST', '/notifications/read-all'); await refresh(); }
     catch (e) { setError(e instanceof Error ? e.message : 'Action impossible'); } finally { setBusy(false); }
   }
+  async function clearRead() {
+    const count = data?.read ?? 0;
+    if (!count || !(await confirm({ title: `Effacer les ${count} notifications lues ?`, message: 'Cette suppression est définitive.', confirmLabel: 'Effacer', danger: true }))) return;
+    setBusy(true); setError('');
+    try { await api<{ deleted: number }>('DELETE', '/notifications/read'); await refresh(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Effacement impossible'); } finally { setBusy(false); }
+  }
   return <>
     <button type="button" className="icon-btn" aria-label={`Notifications${data?.unread ? `, ${data.unread} non lues` : ''}`} title="Notifications" onClick={() => { setOpen(true); void refresh(); }} style={{ position: 'relative', flex: 'none', marginLeft: 0 }}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
       {!!data?.unread && <span aria-hidden="true" style={{ position: 'absolute', top: 0, right: 0, minWidth: 16, height: 16, padding: '0 3px', borderRadius: 8, background: 'var(--accent)', color: 'var(--on-accent)', fontSize: 10, lineHeight: '16px', textAlign: 'center' }}>{data.unread > 99 ? '99+' : data.unread}</span>}
     </button>
-    <Modal open={open} title="Notifications" meta={data ? `${data.unread} non lue${data.unread > 1 ? 's' : ''}` : undefined} onClose={() => setOpen(false)} dismissible size="md" footer={<Button variant="secondary" disabled={busy || !data?.unread} onClick={() => void readAll()}>Tout marquer comme lu</Button>}>
+    <Modal open={open} title="Notifications" meta={data ? `${data.unread} non lue${data.unread > 1 ? 's' : ''}` : undefined} onClose={() => setOpen(false)} dismissible size="md" footer={<><Button variant="ghost" icon="trash" disabled={busy || !data?.read} onClick={() => void clearRead()}>Effacer les notifications lues</Button><Button variant="secondary" disabled={busy || !data?.unread} onClick={() => void readAll()}>Tout marquer comme lu</Button></>}>
       {error && <Notice tone="danger">{error}</Notice>}
       {!data ? <Loading /> : data.items.length === 0 ? <Empty title="Aucune notification" /> : <ul className="feature-list" style={{ margin: 0 }}>
         {data.items.map((item) => <li key={item.id} style={{ padding: 0 }}><button type="button" disabled={busy} onClick={() => void openItem(item)} style={{ display: 'flex', width: '100%', gap: 'var(--s-3)', padding: 'var(--s-3)', textAlign: 'left', border: 0, borderRadius: 'var(--r-ctl)', background: item.readAt ? 'transparent' : 'var(--surface-2)', color: 'var(--text)', cursor: 'pointer', font: 'inherit' }}>
@@ -53,5 +61,6 @@ export function Notifications() {
         </button></li>)}
       </ul>}
     </Modal>
+    {dialog}
   </>;
 }

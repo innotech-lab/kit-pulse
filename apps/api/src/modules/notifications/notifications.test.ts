@@ -3,6 +3,33 @@ import assert from 'node:assert/strict';
 import { startTestApi } from '../../testing.ts';
 import { notify } from '../../core/notify.ts';
 
+test('effacer seulement les notifications lues de son propre compte', async () => {
+  const api = await startTestApi();
+  try {
+    const member = await api.login('daniel'), other = await api.login('stany');
+    notify(api.ctx, [4, 6], { kind: 'TASK_UPDATED', title: 'À lire' });
+    notify(api.ctx, [4, 6], { kind: 'TASK_UPDATED', title: 'Lue' });
+    const myList = await api.call('GET', '/notifications', { cookie: member });
+    const otherList = await api.call('GET', '/notifications', { cookie: other });
+    await api.call('POST', `/notifications/${myList.json.items[0].id}/read`, { cookie: member });
+    await api.call('POST', `/notifications/${otherList.json.items[0].id}/read`, { cookie: other });
+    assert.equal((await api.call('GET', '/notifications', { cookie: member })).json.read, 1);
+    const deleted = await api.call('DELETE', '/notifications/read', { cookie: member });
+    assert.deepEqual([deleted.status, deleted.json.deleted], [200, 1]);
+    const mine = await api.call('GET', '/notifications', { cookie: member });
+    assert.deepEqual([mine.json.read, mine.json.unread, mine.json.items.length], [0, 1, 1]);
+    const theirs = await api.call('GET', '/notifications', { cookie: other });
+    assert.deepEqual([theirs.json.read, theirs.json.unread, theirs.json.items.length], [1, 1, 2]);
+    assert.equal((await api.call('DELETE', '/notifications/read', { cookie: member })).json.deleted, 0);
+    for (let i = 0; i < 51; i++) notify(api.ctx, [4], { kind: 'TASK_UPDATED', title: `Nouvelle ${i}` });
+    api.ctx.db.prepare('UPDATE notifications SET read_at = ? WHERE id = (SELECT MIN(id) FROM notifications WHERE user_id = ?)').run(api.ctx.now().toISOString(), 4);
+    const limited = await api.call('GET', '/notifications', { cookie: member });
+    assert.equal(limited.json.read, 1);
+    assert.equal(limited.json.items.some((item: { readAt: string | null }) => item.readAt !== null), false);
+    assert.equal((await api.call('DELETE', '/notifications/read', { cookie: member })).json.deleted, 1);
+  } finally { await api.close(); }
+});
+
 test('notifications : ordre, limite, compteur et isolation entre comptes', async () => {
   const api = await startTestApi();
   try {

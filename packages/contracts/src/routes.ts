@@ -58,6 +58,7 @@ export const ROUTES: RouteDef[] = [
   r('Codex', 'users', 'post', '/:id/face', HR, 'V2-L4', 'Enregistrer le visage (consentement)'),
   r('Codex', 'users', 'delete', '/:id/face', HR, 'V2-L4', 'Supprimer l empreinte faciale'),
   r('Codex', 'notifications', 'get', '/', 'ALL', 'V2-L6', 'Mes notifications'),
+  r('Codex', 'notifications', 'delete', '/read', 'ALL', 'V2-L6', 'Effacer mes notifications lues'),
   r('Codex', 'notifications', 'post', '/:id/read', 'ALL', 'V2-L6', 'Marquer une notification comme lue'),
   r('Codex', 'notifications', 'post', '/read-all', 'ALL', 'V2-L6', 'Tout marquer comme lu'),
   r('Dancile', 'attendance', 'get', '/me', 'ALL', 'ATT-001', 'Mes journees'),
