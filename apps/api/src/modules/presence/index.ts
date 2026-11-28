@@ -2,8 +2,9 @@
 import { createPublicKey, randomBytes, verify } from 'node:crypto';
 import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ArrivalDecisionInput, attestationPayload, ChallengeInput, checkNetwork, Id, ManualPunchInput, PunchInput, RangeForUser, SIMULATED_GATEWAY_MAC, type ArrivalReview, type Punch, type PunchType } from '@kit-pulse/contracts';
+import { WebPunchInput, ArrivalDecisionInput, attestationPayload, ChallengeInput, checkNetwork, Id, ManualPunchInput, PunchInput, RangeForUser, SIMULATED_GATEWAY_MAC, type ArrivalReview, type Punch, type PunchType } from '@kit-pulse/contracts';
 import { audit } from '../../core/audit.ts';
+import { arrivalSignals, webPunch } from './webPunch.ts';
 import { ROOT, transaction } from '../../../../../db/lib.ts';
 import type { Ctx } from '../../core/context.ts';
 import { badRequest, conflict, HttpError, notFound } from '../../core/errors.ts';
@@ -174,7 +175,15 @@ export default function presenceModule(ctx: Ctx) {
       LEFT JOIN devices d ON d.id = p.device_id LEFT JOIN users rv ON rv.id = p.reviewed_by WHERE p.id = ?`).get(id) as Record<string, unknown>);
   });
   // --- V2-L2 / L5 (Claude) ---
-  route('post', '/web-punch', todo('V2-L2'));
-  route('get', '/reviews/:id/signals', todo('V2-L5'));
+  route('post', '/web-punch', async ({ body, user, req, res }) => {
+    const p = await webPunch(ctx, user, parse(WebPunchInput, body), req.ip ?? null);
+    res.status(201);
+    return p;
+  });
+  route('get', '/reviews/:id/signals', ({ params }) => {
+    const sig = arrivalSignals(ctx, parse(Id, params.id));
+    if (!sig) throw notFound('Arrivée introuvable.');
+    return sig;
+  });
   return router;
 }

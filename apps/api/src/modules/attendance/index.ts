@@ -1,5 +1,6 @@
 // Dancile. Routes d'assiduite (ATT-001, ATT-002, ATT-004). ATT-003 (P1) coupe pour la demo.
-import { HolidayInput, Range, RangeForUser, UpdateScheduleInput } from '@kit-pulse/contracts';
+import { HolidayInput, Range, RangeForUser, SiteLocation, UpdateScheduleInput } from '@kit-pulse/contracts';
+import { saveSiteLocation, siteLocation } from './site.ts';
 import { transaction } from '../../../../../db/lib.ts';
 import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
@@ -48,7 +49,13 @@ export default function attendanceModule(ctx: Ctx) {
     return input;
   });
   // --- V2-L2 (Claude) : lieu du KiT Hub ---
-  route('get', '/site', todo('V2-L2'));
-  route('put', '/site', todo('V2-L2'));
+  route('get', '/site', () => siteLocation(ctx));
+  route('put', '/site', ({ body, user }) => {
+    const input = parse(SiteLocation, body);
+    if ((input.lat === null) !== (input.lng === null)) throw badRequest('INVALID_SITE', 'Latitude et longitude vont ensemble.');
+    saveSiteLocation(ctx, input);
+    audit(ctx, user.id, 'SITE_LOCATION_SET', 'settings', null, input);
+    return siteLocation(ctx);
+  });
   return router;
 }
