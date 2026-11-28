@@ -25,7 +25,7 @@ function locate(): Promise<{ geo: { lat: number; lng: number; accuracy: number }
 }
 
 /** Pointage sans agent : appareil (cle du navigateur), position, photo ; la RH valide l'arrivee. */
-async function punch(type: PunchType, onStep: (s: Step) => void, photo: string | null, owner: string): Promise<Punch> {
+async function punch(type: PunchType, onStep: (s: Step) => void, photo: string | null, owner: string, frames: string[] = []): Promise<Punch> {
   onStep('device');
   const { nonce } = await api<{ nonce: string }>('POST', '/presence/challenge', { body: { type } });
   const proof = await proveDevice(nonce, defaultDeviceLabel(owner)).catch(() => ({ keyId: null, signature: null, fingerprint: null, privateMode: null }));
@@ -34,7 +34,7 @@ async function punch(type: PunchType, onStep: (s: Step) => void, photo: string |
   onStep('send');
   const p = await api<Punch>('POST', '/presence/web-punch', { body: {
     type, nonce, deviceKeyId: proof.keyId, deviceSignature: proof.signature, fingerprint: proof.fingerprint, privateMode: proof.privateMode,
-    geo: where.geo, geoError: where.geoError, photo: type === 'IN' ? photo : null, livenessFrames: [],
+    geo: where.geo, geoError: where.geoError, photo: type === 'IN' ? photo : null, livenessFrames: type === 'IN' ? frames : [],
   } });
   onStep('saved');
   return p;
@@ -65,13 +65,13 @@ function useCamera(active: boolean) {
     return () => { stream.current?.getTracks().forEach((t) => t.stop()); stream.current = null; setState('off'); };
   }, [active, start]);
   /** Image JPEG de 480 px de large, compressee (environ 30 a 60 Ko). */
-  const capture = () => {
+  const capture = (w = 480, quality = 0.72) => {
     const v = video.current;
     if (!v || state !== 'ready' || !v.videoWidth) return null;
-    const w = 480, h = Math.round((v.videoHeight / v.videoWidth) * w);
+    const h = Math.round((v.videoHeight / v.videoWidth) * w);
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     c.getContext('2d')!.drawImage(v, 0, 0, w, h);
-    return c.toDataURL('image/jpeg', 0.72);
+    return c.toDataURL('image/jpeg', quality);
   };
   return { video, state, capture, retry: start };
 }
@@ -103,6 +103,7 @@ function PunchPage() {
   const [week, setWeek] = useState<AttendanceDay[] | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [live, setLive] = useState(false);
   const [step, setStep] = useState<Step | null>(null);
   const [done, setDone] = useState<Punch | null>(null);
 
@@ -118,7 +119,14 @@ function PunchPage() {
     setBusy(true); setError(''); setDone(null);
     const photo = type === 'IN' ? cam.capture() : null;
     if (type === 'IN' && !photo) { setError('La photo n’a pas pu être prise. Autorisez la webcam, puis réessayez.'); setBusy(false); return; }
-    try { setDone(await punch(type, setStep, photo, user?.fullName ?? 'moi')); load(); } catch (e) { setError((e as Error).message); setStep(null); } finally { setBusy(false); }
+    // Controle du vivant : quelques images pendant que la personne tourne la tete.
+    const frames: string[] = [];
+    if (type === 'IN') {
+      setLive(true);
+      for (let i = 0; i < 4; i++) { await new Promise((res) => setTimeout(res, 500)); const f = cam.capture(320, 0.6); if (f) frames.push(f); }
+      setLive(false);
+    }
+    try { setDone(await punch(type, setStep, photo, user?.fullName ?? 'moi', frames)); load(); } catch (e) { setError((e as Error).message); setStep(null); } finally { setBusy(false); }
   }
 
   const valid = today?.punches.filter((p) => p.reviewStatus !== 'REJECTED') ?? [];
@@ -148,6 +156,7 @@ function PunchPage() {
           <div className="punch-action">
             {next === 'IN' && today && <div className={`punch-cam is-${cam.state}`}>
               <video ref={cam.video} muted playsInline aria-label="Aperçu de la webcam" />
+              {live && <span className="punch-cam-live">Tournez légèrement la tête à gauche, puis à droite</span>}
               {cam.state !== 'ready' && <span className="punch-cam-msg">{cam.state === 'asking' || cam.state === 'off' ? 'Ouverture de la webcam…' : cam.state === 'missing' ? 'Aucune webcam détectée' : 'Webcam bloquée'}</span>}
             </div>}
             <Button size="lg" icon={next === 'IN' ? 'login' : 'logout'} disabled={busy || !today || camBlocked} onClick={() => { void go(next); }}>

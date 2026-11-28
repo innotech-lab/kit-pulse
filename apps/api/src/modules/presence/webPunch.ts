@@ -10,12 +10,12 @@ import { notify, notifyRoles } from '../../core/notify.ts';
 import { localParts } from '../../core/time.ts';
 import { checkGeo } from '../attendance/site.ts';
 import { checkDevice } from '../devices/webDevices.ts';
+import { checkFace } from '../../face/engine.ts';
 
 const MAX_PHOTO_BYTES = 300_000;
 export type FaceCheck = (ctx: Ctx, userId: number, photo: Buffer, liveness: Buffer[]) => Promise<{ verdict: FaceVerdict; score: number | null }>;
-/** Remplace par la reconnaissance du lot 3 ; d'ici la, l'indice visage est « non disponible ». */
-export let faceCheck: FaceCheck = async (ctx, userId) =>
-  ctx.db.prepare('SELECT 1 FROM face_templates WHERE user_id = ?').get(userId) ? { verdict: 'UNAVAILABLE', score: null } : { verdict: 'NO_TEMPLATE', score: null };
+/** Reconnaissance faciale (lot 3) ; remplacable dans les tests. */
+export let faceCheck: FaceCheck = checkFace;
 export function setFaceCheck(fn: FaceCheck): void { faceCheck = fn; }
 
 const jpegBytes = (dataUrl: string) => {
