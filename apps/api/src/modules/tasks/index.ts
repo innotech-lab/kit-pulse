@@ -3,6 +3,7 @@ import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
 import { badRequest, forbidden, notFound } from '../../core/errors.ts';
 import { createModule, parse } from '../../core/module.ts';
+import { notify } from '../../core/notify.ts';
 
 function task(row: Record<string, unknown>) {
   return Task.parse({ id: row.id, title: row.title, description: row.description, assigneeId: row.assignee_id,
@@ -39,6 +40,7 @@ export default function tasksModule(ctx: Ctx) {
       .run(input.title, input.description, input.assigneeId, user.id, input.priority, input.workDate, input.dueDate, now, now);
     const id = Number(result.lastInsertRowid);
     audit(ctx, user.id, 'TASK_CREATE', 'task', id);
+    if (input.assigneeId !== user.id) notify(ctx, [input.assigneeId], { kind: 'TASK_ASSIGNED', title: 'Une tâche vous a été attribuée', body: `${user.fullName} : ${input.title}`, link: '#tasks' });
     return get(id);
   });
   route('patch', '/:id', ({ user, body, params }) => {
@@ -49,6 +51,7 @@ export default function tasksModule(ctx: Ctx) {
     ctx.db.prepare('UPDATE tasks SET title = ?, description = ?, assignee_id = ?, priority = ?, work_date = ?, due_date = ?, updated_at = ? WHERE id = ?')
       .run(next.title, next.description, next.assigneeId, next.priority, next.workDate, next.dueDate, ctx.now().toISOString(), id);
     audit(ctx, user.id, 'TASK_UPDATE', 'task', id);
+    if (next.assigneeId !== user.id && Object.keys(input).length) notify(ctx, [next.assigneeId], { kind: next.assigneeId !== old.assigneeId ? 'TASK_ASSIGNED' : 'TASK_UPDATED', title: next.assigneeId !== old.assigneeId ? 'Une tâche vous a été attribuée' : 'Une tâche a été modifiée', body: `${user.fullName} : ${next.title}`, link: '#tasks' });
     return get(id);
   });
   route('post', '/:id/progress', ({ user, body, params }) => {
@@ -58,6 +61,7 @@ export default function tasksModule(ctx: Ctx) {
     ctx.db.prepare('UPDATE tasks SET progress = ?, status = ?, completed_at = ?, updated_at = ? WHERE id = ?').run(input.progress, input.status, input.progress === 100 ? now : null, now, id);
     ctx.db.prepare('INSERT INTO task_updates (task_id, user_id, progress, status, note, at) VALUES (?,?,?,?,?,?)').run(id, user.id, input.progress, input.status, input.note, now);
     audit(ctx, user.id, 'TASK_PROGRESS', 'task', id, { progress: input.progress, status: input.status });
+    if (old.assigneeId !== user.id) notify(ctx, [old.assigneeId], { kind: 'TASK_UPDATED', title: 'Une tâche a été modifiée', body: `${user.fullName} : ${old.title}`, link: '#tasks' });
     return get(id);
   });
   return router;

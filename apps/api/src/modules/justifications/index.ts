@@ -4,6 +4,7 @@ import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
 import { conflict, forbidden, HttpError, notFound } from '../../core/errors.ts';
 import { createModule, parse } from '../../core/module.ts';
+import { notify, notifyRoles } from '../../core/notify.ts';
 
 const toJustification = (r: Record<string, unknown>): Justification => ({
   id: r.id as number, userId: r.user_id as number, workDate: r.work_date as string, kind: r.kind as Justification['kind'],
@@ -22,6 +23,7 @@ export default function justificationsModule(ctx: Ctx) {
       .run(user.id, input.workDate, input.kind, input.reason, ctx.now().toISOString());
     const id = Number(r.lastInsertRowid);
     audit(ctx, user.id, 'JUSTIFICATION_CREATE', 'justification', id);
+    notifyRoles(ctx, ['ADMIN', 'HR'], { kind: 'JUSTIFICATION_SUBMITTED', title: 'Nouvelle justification', body: `${user.fullName} · ${input.workDate}`, link: '#reviews' }, user.id);
     return toJustification(byId(id)!);
   });
   route('get', '/me', ({ user }) =>
@@ -38,6 +40,7 @@ export default function justificationsModule(ctx: Ctx) {
     ctx.db.prepare('UPDATE justifications SET status = ?, review_note = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?')
       .run(input.status, input.note, user.id, ctx.now().toISOString(), id);
     audit(ctx, user.id, `JUSTIFICATION_${input.status}`, 'justification', id, { note: input.note });
+    notify(ctx, [row.user_id as number], { kind: 'JUSTIFICATION_DECIDED', title: input.status === 'ACCEPTED' ? 'Justification acceptée' : 'Justification refusée', body: `${row.work_date}${input.note ? ` · ${input.note}` : ''}`, link: '#attendance' });
     return toJustification(byId(id)!);
   });
   return router;

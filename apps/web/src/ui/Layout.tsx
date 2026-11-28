@@ -2,6 +2,7 @@
 import type { ReactNode } from 'react';
 import type { User } from '@kit-pulse/contracts';
 import { Avatar, Icon, IconButton, type IconName } from './components.tsx';
+import { Notifications } from './Notifications.tsx';
 
 interface Props { user: User; items: { path: string; label: string }[]; active: string; onLogout: () => Promise<void>; children: ReactNode }
 const ICONS: Record<string, IconName> = { pointage: 'clock', tasks: 'tasks', agenda: 'calendar', attendance: 'attendance', equipe: 'team', dashboard: 'dashboard', reviews: 'review', arrivees: 'camera', admin: 'admin' };
@@ -30,6 +31,7 @@ export function Layout({ user, items, active, onLogout, children }: Props) {
         <div className="me">
           <Avatar name={user.fullName} />
           <div className="me-text"><strong>{user.fullName}</strong><span>{user.badgeId} · {ROLE[user.role]}</span></div>
+          <Notifications />
           <IconButton icon="logout" label="Se déconnecter" onClick={() => { void onLogout(); }} />
         </div>
       </aside>

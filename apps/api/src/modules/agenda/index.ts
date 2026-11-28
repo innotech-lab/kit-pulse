@@ -3,6 +3,7 @@ import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
 import { badRequest, forbidden, notFound } from '../../core/errors.ts';
 import { createModule, parse } from '../../core/module.ts';
+import { notify } from '../../core/notify.ts';
 
 function event(row: Record<string, unknown>) {
   return AgendaEvent.parse({ id: row.id, userId: row.user_id, title: row.title, kind: row.kind,
@@ -33,7 +34,9 @@ export default function agendaModule(ctx: Ctx) {
     validate(input);
     const result = ctx.db.prepare('INSERT INTO events (user_id, title, kind, starts_at, ends_at, location, task_id, created_by) VALUES (?,?,?,?,?,?,?,?)')
       .run(userId, input.title, input.kind, input.startsAt, input.endsAt, input.location, input.taskId, user.id);
-    const id = Number(result.lastInsertRowid); audit(ctx, user.id, 'EVENT_CREATE', 'event', id); return get(id);
+    const id = Number(result.lastInsertRowid); audit(ctx, user.id, 'EVENT_CREATE', 'event', id);
+    if (userId !== user.id) notify(ctx, [userId], { kind: 'AGENDA_EVENT_ADDED', title: 'Nouvel événement dans votre agenda', body: `${user.fullName} : ${input.title}`, link: '#agenda' });
+    return get(id);
   });
   route('patch', '/:id', ({ user, body, params }) => {
     const id = parse(Id, params.id), old = get(id), input = parse(AgendaUpdateInput, body);

@@ -8,6 +8,7 @@ import { ROOT, transaction } from '../../../../../db/lib.ts';
 import type { Ctx } from '../../core/context.ts';
 import { badRequest, conflict, HttpError, notFound } from '../../core/errors.ts';
 import { createModule, parse, todo } from '../../core/module.ts';
+import { notify } from '../../core/notify.ts';
 import { knownNetworks } from '../../core/networks.ts';
 import { localParts } from '../../core/time.ts';
 
@@ -168,6 +169,7 @@ export default function presenceModule(ctx: Ctx) {
     if (row.review_status !== 'PENDING') throw conflict('ALREADY_REVIEWED', 'Cette arrivée a déjà été traitée.');
     ctx.db.prepare('UPDATE punches SET review_status = ?, review_note = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?').run(input.status, input.note, user.id, ctx.now().toISOString(), id);
     audit(ctx, user.id, input.status === 'APPROVED' ? 'ARRIVAL_APPROVED' : 'ARRIVAL_REJECTED', 'punch', id, { userId: row.user_id, at: row.at, note: input.note });
+    if (input.status === 'REJECTED') notify(ctx, [row.user_id as number], { kind: 'ARRIVAL_REJECTED', title: 'Arrivée refusée', body: input.note, link: '#pointage' });
     return toReview(ctx.db.prepare(`SELECT p.*, u.full_name, u.badge_id, d.label AS device_label, rv.full_name AS reviewer FROM punches p JOIN users u ON u.id = p.user_id
       LEFT JOIN devices d ON d.id = p.device_id LEFT JOIN users rv ON rv.id = p.reviewed_by WHERE p.id = ?`).get(id) as Record<string, unknown>);
   });

@@ -5,6 +5,7 @@ import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
 import { badRequest, conflict, notFound } from '../../core/errors.ts';
 import { createModule, parse, todo } from '../../core/module.ts';
+import { notify } from '../../core/notify.ts';
 import { closeAllSessions, toUser } from '../../core/session.ts';
 
 export default function usersModule(ctx: Ctx) {
@@ -84,6 +85,7 @@ export default function usersModule(ctx: Ctx) {
     ctx.db.prepare('UPDATE users SET password_hash = ?, must_change_password = 1, updated_at = ? WHERE id = ?').run(hashPassword(password), ctx.now().toISOString(), id);
     closeAllSessions(ctx, id);
     audit(ctx, user.id, 'USER_RESET_PASSWORD', 'user', id);
+    notify(ctx, [id], { kind: 'PASSWORD_RESET', title: 'Mot de passe réinitialisé', body: 'Votre mot de passe a été réinitialisé par un administrateur.', link: null });
   });
   // --- V2-L4 (Codex) : visage enregistre chez l admin ---
   route('get', '/:id/face', todo('V2-L4'));
