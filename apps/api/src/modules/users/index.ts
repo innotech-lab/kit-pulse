@@ -4,7 +4,7 @@ import { hashPassword, transaction } from '../../../../../db/lib.ts';
 import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
 import { badRequest, conflict, notFound } from '../../core/errors.ts';
-import { createModule, parse } from '../../core/module.ts';
+import { createModule, parse, todo } from '../../core/module.ts';
 import { closeAllSessions, toUser } from '../../core/session.ts';
 
 export default function usersModule(ctx: Ctx) {
@@ -85,5 +85,9 @@ export default function usersModule(ctx: Ctx) {
     closeAllSessions(ctx, id);
     audit(ctx, user.id, 'USER_RESET_PASSWORD', 'user', id);
   });
+  // --- V2-L4 (Codex) : visage enregistre chez l admin ---
+  route('get', '/:id/face', todo('V2-L4'));
+  route('post', '/:id/face', todo('V2-L4'));
+  route('delete', '/:id/face', todo('V2-L4'));
   return router;
 }

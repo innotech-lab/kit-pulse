@@ -4,7 +4,7 @@ import { ApproveDeviceInput, EnrollInput, Id } from '@kit-pulse/contracts';
 import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
 import { badRequest, conflict, notFound } from '../../core/errors.ts';
-import { createModule, parse } from '../../core/module.ts';
+import { createModule, parse, todo } from '../../core/module.ts';
 
 export const keyIdOf = (publicKey: string) => createHash('sha256').update(publicKey).digest('hex').slice(0, 32);
 
@@ -44,5 +44,13 @@ export default function devicesModule(ctx: Ctx) {
     audit(ctx, user.id, 'DEVICE_REVOKE', 'device', id);
     return { id, status: 'REVOKED' };
   });
+  // --- V2-L1 (Claude) : appareils reconnus par le navigateur ---
+  route('post', '/web/register', todo('V2-L1'));
+  route('get', '/web', todo('V2-L1'));
+  route('get', '/web/:id', todo('V2-L1'));
+  route('post', '/web/:id/approve', todo('V2-L1'));
+  route('post', '/web/:id/revoke', todo('V2-L1'));
+  route('post', '/web/:id/passkey/options', todo('V2-L1'));
+  route('post', '/web/:id/passkey', todo('V2-L1'));
   return router;
 }

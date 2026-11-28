@@ -4,7 +4,7 @@ import { transaction } from '../../../../../db/lib.ts';
 import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
 import { badRequest } from '../../core/errors.ts';
-import { createModule, parse } from '../../core/module.ts';
+import { createModule, parse, todo } from '../../core/module.ts';
 import { computeDays } from './public.ts';
 
 export default function attendanceModule(ctx: Ctx) {
@@ -47,5 +47,8 @@ export default function attendanceModule(ctx: Ctx) {
     res.status(201);
     return input;
   });
+  // --- V2-L2 (Claude) : lieu du KiT Hub ---
+  route('get', '/site', todo('V2-L2'));
+  route('put', '/site', todo('V2-L2'));
   return router;
 }

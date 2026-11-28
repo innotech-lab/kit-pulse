@@ -171,5 +171,8 @@ export default function presenceModule(ctx: Ctx) {
     return toReview(ctx.db.prepare(`SELECT p.*, u.full_name, u.badge_id, d.label AS device_label, rv.full_name AS reviewer FROM punches p JOIN users u ON u.id = p.user_id
       LEFT JOIN devices d ON d.id = p.device_id LEFT JOIN users rv ON rv.id = p.reviewed_by WHERE p.id = ?`).get(id) as Record<string, unknown>);
   });
+  // --- V2-L2 / L5 (Claude) ---
+  route('post', '/web-punch', todo('V2-L2'));
+  route('get', '/reviews/:id/signals', todo('V2-L5'));
   return router;
 }

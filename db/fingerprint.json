@@ -1,21 +1,25 @@
 {
-  "schema": "ebd358ad098daf7be87a58783a82247c31c3f9d919f29725bb019ed76de718c5",
-  "data": "241d928934551622cf50769d4198e385fdd394c26c577f0c4f537945254fe1c0",
+  "schema": "e4180df26fd462f023d57e9a8f444043c3b81a97665b03f73b98519c1c05f45b",
+  "data": "8b1a48b4566470496b4118bde6203445e5cb35454a4612684a6134b96f6818e2",
   "rows": {
     "audit_log": 0,
     "availability": 7,
+    "device_passkeys": 0,
     "devices": 0,
     "events": 3,
+    "face_templates": 0,
     "holidays": 31,
     "justifications": 3,
     "networks": 2,
+    "notifications": 0,
     "punch_rejections": 0,
     "punches": 23,
-    "schema_migrations": 4,
-    "settings": 1,
+    "schema_migrations": 5,
+    "settings": 4,
     "task_updates": 0,
     "tasks": 4,
     "users": 10,
+    "web_devices": 0,
     "work_schedule": 5
   }
 }
