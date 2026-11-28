@@ -1,6 +1,8 @@
 // Stany. /enroll et /approve sont fournis (necessaires au pointage) ; le reste est a developper.
 import { createHash, createPublicKey } from 'node:crypto';
-import { ApproveDeviceInput, EnrollInput, Id } from '@kit-pulse/contracts';
+import { ApproveDeviceInput, EnrollInput, Id, WebDeviceRegisterInput } from '@kit-pulse/contracts';
+import { notifyRoles } from '../../core/notify.ts';
+import { assertP256, DEVICE_SELECT, deviceDetail, toWebDevice, webKeyIdOf } from './webDevices.ts';
 import { audit } from '../../core/audit.ts';
 import type { Ctx } from '../../core/context.ts';
 import { badRequest, conflict, notFound } from '../../core/errors.ts';
@@ -45,11 +47,44 @@ export default function devicesModule(ctx: Ctx) {
     return { id, status: 'REVOKED' };
   });
   // --- V2-L1 (Claude) : appareils reconnus par le navigateur ---
-  route('post', '/web/register', todo('V2-L1'));
-  route('get', '/web', todo('V2-L1'));
-  route('get', '/web/:id', todo('V2-L1'));
-  route('post', '/web/:id/approve', todo('V2-L1'));
-  route('post', '/web/:id/revoke', todo('V2-L1'));
+  // Enregistre l'appareil du navigateur au nom du compte connecte. Deja connu : on ne change JAMAIS son proprietaire.
+  route('post', '/web/register', ({ body, user }) => {
+    const input = parse(WebDeviceRegisterInput, body);
+    assertP256(input.publicKey);
+    const keyId = webKeyIdOf(input.publicKey);
+    const found = ctx.db.prepare('SELECT id, owner_id, status FROM web_devices WHERE key_id = ?').get(keyId) as { id: number; owner_id: number; status: string } | undefined;
+    if (found) {
+      if (input.fingerprint) ctx.db.prepare('UPDATE web_devices SET fingerprint = ? WHERE id = ? AND owner_id = ?').run(input.fingerprint, found.id, user.id);
+      return { id: found.id, keyId, status: found.status, mine: found.owner_id === user.id };
+    }
+    const status = ctx.config.autoApproveDevices ? 'APPROVED' : 'PENDING';
+    const r = ctx.db.prepare('INSERT INTO web_devices (key_id, public_key, owner_id, label, fingerprint, status, created_at) VALUES (?,?,?,?,?,?,?)')
+      .run(keyId, input.publicKey, user.id, input.label, input.fingerprint, status, ctx.now().toISOString());
+    const id = Number(r.lastInsertRowid);
+    audit(ctx, user.id, 'WEB_DEVICE_REGISTER', 'web_device', id, { label: input.label, status });
+    if (status === 'PENDING') notifyRoles(ctx, ['ADMIN'], { kind: 'DEVICE_TO_APPROVE', title: `Nouvel appareil à approuver : ${input.label}`, body: `Enregistré par ${user.fullName}`, link: '#admin' }, user.id);
+    return { id, keyId, status, mine: true };
+  });
+  route('get', '/web', () => (ctx.db.prepare(`${DEVICE_SELECT} ORDER BY CASE d.status WHEN 'PENDING' THEN 0 WHEN 'APPROVED' THEN 1 ELSE 2 END, d.created_at DESC`).all() as Record<string, unknown>[]).map(toWebDevice));
+  route('get', '/web/:id', ({ params }) => {
+    const d = deviceDetail(ctx, parse(Id, params.id));
+    if (!d) throw notFound('Appareil introuvable.');
+    return d;
+  });
+  route('post', '/web/:id/approve', ({ params, user }) => {
+    const id = parse(Id, params.id);
+    const r = ctx.db.prepare("UPDATE web_devices SET status = 'APPROVED', reviewed_by = ?, reviewed_at = ? WHERE id = ?").run(user.id, ctx.now().toISOString(), id);
+    if (!r.changes) throw notFound('Appareil introuvable.');
+    audit(ctx, user.id, 'WEB_DEVICE_APPROVE', 'web_device', id);
+    return deviceDetail(ctx, id);
+  });
+  route('post', '/web/:id/revoke', ({ params, user }) => {
+    const id = parse(Id, params.id);
+    const r = ctx.db.prepare("UPDATE web_devices SET status = 'REVOKED', reviewed_by = ?, reviewed_at = ? WHERE id = ?").run(user.id, ctx.now().toISOString(), id);
+    if (!r.changes) throw notFound('Appareil introuvable.');
+    audit(ctx, user.id, 'WEB_DEVICE_REVOKE', 'web_device', id);
+    return deviceDetail(ctx, id);
+  });
   route('post', '/web/:id/passkey/options', todo('V2-L1'));
   route('post', '/web/:id/passkey', todo('V2-L1'));
   return router;
